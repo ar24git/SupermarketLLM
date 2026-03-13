@@ -13,7 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { ollamaService } from '../services/ollama';
 import { QueryResult } from '../types';
-import './i18n';
+import '../locales/i18n';
 
 interface Message {
   id: string;
