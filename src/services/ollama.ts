@@ -1,8 +1,25 @@
 import { Product, Store, PriceEntry, QueryResult } from '../types';
 import { products, stores, prices, getPricesForProduct, findCheapestPrice, getProductById, getStoreById } from '../data/superMarkets';
+import Constants from 'expo-constants';
 
-const OLLAMA_BASE_URL = 'http://localhost:11434';
-const MODEL_NAME = 'llama3.2'; // or whichever model you have installed
+// Get Ollama URL from environment or use default
+// For mobile, you need to use your computer's IP address, not localhost
+const getOllamaUrl = (): string => {
+  // Check if we're in development mode
+  const debuggerHost = Constants.expoConfig?.hostUri;
+  
+  if (debuggerHost) {
+    // Running in Expo Go - extract IP from hostUri (format: "192.168.1.5:8081")
+    const ip = debuggerHost.split(':')[0];
+    return `http://${ip}:11434`;
+  }
+  
+  // Fallback to localhost (for web/testing)
+  return 'http://localhost:11434';
+};
+
+const OLLAMA_BASE_URL = getOllamaUrl();
+const MODEL_NAME = 'llama3.2';
 
 interface OllamaMessage {
   role: 'user' | 'assistant' | 'system';
@@ -19,6 +36,7 @@ interface OllamaResponse {
 class OllamaService {
   private baseUrl: string;
   private model: string;
+  private isConnected: boolean = false;
 
   constructor(baseUrl: string = OLLAMA_BASE_URL, model: string = MODEL_NAME) {
     this.baseUrl = baseUrl;
@@ -28,33 +46,53 @@ class OllamaService {
   // Check if Ollama is running
   async checkConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/tags`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch(`${this.baseUrl}/api/tags`, {
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      this.isConnected = response.ok;
       return response.ok;
     } catch {
+      this.isConnected = false;
       return false;
     }
   }
 
   // Send a chat message to Ollama
   async chat(messages: OllamaMessage[]): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        stream: false,
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    
+    try {
+      const response = await fetch(`${this.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages,
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      throw new Error(`Ollama error: ${response.statusText}`);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Ollama error: ${response.statusText}`);
+      }
+
+      const data: OllamaResponse = await response.json();
+      return data.message.content;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
     }
-
-    const data: OllamaResponse = await response.json();
-    return data.message.content;
   }
 
   // Build context from price data
@@ -80,65 +118,38 @@ class OllamaService {
     return context;
   }
 
-  // Process user query about prices
-  async queryPrices(userMessage: string, language: string = 'en'): Promise<QueryResult> {
-    const systemContext = this.buildPriceContext();
+  // Fallback response when Ollama is not available
+  private getFallbackResponse(userMessage: string, language: string): QueryResult {
+    const message = userMessage.toLowerCase();
     
-    let systemPrompt = systemContext;
-    if (language === 'el') {
-      systemPrompt += '\n\nRespond in Greek. Use Greek names for stores and products when appropriate.';
-    } else {
-      systemPrompt += '\n\nRespond in the language the user is using.';
-    }
-
-    const messages: OllamaMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage },
-    ];
-
-    try {
-      const answer = await this.chat(messages);
-      
-      // Try to extract product mentions from the answer
-      const mentionedProducts = products.filter(p => 
-        answer.toLowerCase().includes(p.name.toLowerCase()) ||
-        answer.toLowerCase().includes(p.nameGreek.toLowerCase())
-      );
-
-      return {
-        answer,
-        products: mentionedProducts,
-      };
-    } catch (error) {
-      return {
-        answer: `Sorry, I couldn't process your request. Make sure Ollama is running locally on port 11434. Error: ${error}`,
-      };
-    }
-  }
-
-  // Get cheapest price for a product
-  async getCheapestPrice(productName: string, language: string = 'en'): Promise<QueryResult> {
-    // Find product by name (English or Greek)
+    // Try to find product mentioned
     const product = products.find(p => 
-      p.name.toLowerCase() === productName.toLowerCase() ||
-      p.nameGreek.toLowerCase() === productName.toLowerCase() ||
-      p.nameGreek.includes(productName) ||
-      p.name.includes(productName)
+      message.includes(p.name.toLowerCase()) ||
+      message.includes(p.nameGreek.toLowerCase())
     );
 
     if (!product) {
-      const answer = language === 'el' 
-        ? `Δεν βρήκα το προϊόν "${productName}" στη βάση δεδομένων.`
-        : `I couldn't find "${productName}" in the database.`;
-      return { answer };
+      return {
+        answer: language === 'el' 
+          ? 'Λυπάμαι, δεν μπορώ να συνδεθώ με το Ollama και δεν αναγνώρισα το προϊόν. Παρακαλώ ξεκίνα το Ollama στον υπολογιστή σου.'
+          : 'Sorry, I cannot connect to Ollama and didn\'t recognize the product. Please start Ollama on your computer.',
+      };
     }
 
+    // Return cheapest price from local data
+    return this.getCheapestPriceLocal(product, language);
+  }
+
+  // Get cheapest price using local data (no LLM)
+  private getCheapestPriceLocal(product: Product, language: string): QueryResult {
     const cheapest = findCheapestPrice(product.id);
+    
     if (!cheapest) {
       return {
         answer: language === 'el'
-          ? `Δεν έχω διαθέσιμες τιμές για ${product.name}.`
+          ? `Δεν έχω διαθέσιμες τιμές για ${product.nameGreek}.`
           : `No prices available for ${product.name}.`,
+        products: [product],
       };
     }
 
@@ -148,8 +159,8 @@ class OllamaService {
       .filter(p => p.store);
 
     const answer = language === 'el'
-      ? `Η φθηνότερη τιμή για ${product.nameGreek} (${product.name}) είναι €${cheapest.price.toFixed(2)} στο ${store?.nameGreek} (${store?.name}).\n\nΌλες οι τιμές:\n${allPrices.map(p => `- ${p.store?.nameGreek}: €${p.price.price.toFixed(2)}`).join('\n')}`
-      : `The cheapest price for ${product.name} (${product.nameGreek}) is €${cheapest.price.toFixed(2)} at ${store?.name}.\n\nAll prices:\n${allPrices.map(p => `- ${p.store?.name}: €${p.price.price.toFixed(2)}`).join('\n')}`;
+      ? `Η φθηνότερη τιμή για ${product.nameGreek} είναι €${cheapest.price.toFixed(2)} στο ${store?.nameGreek}.\n\nΌλες οι τιμές:\n${allPrices.map(p => `- ${p.store?.nameGreek}: €${p.price.price.toFixed(2)}`).join('\n')}`
+      : `The cheapest price for ${product.name} is €${cheapest.price.toFixed(2)} at ${store?.name}.\n\nAll prices:\n${allPrices.map(p => `- ${p.store?.name}: €${p.price.price.toFixed(2)}`).join('\n')}`;
 
     return {
       answer,
@@ -157,6 +168,74 @@ class OllamaService {
       prices: allPrices.map(p => p.price),
       cheapestStore: store,
     };
+  }
+
+  // Process user query about prices
+  async queryPrices(userMessage: string, language: string = 'en'): Promise<QueryResult> {
+    // First try to use Ollama
+    if (this.isConnected) {
+      try {
+        return await this.queryWithOllama(userMessage, language);
+      } catch (error) {
+        console.log('Ollama query failed, using fallback:', error);
+        // Fall through to local data
+      }
+    }
+
+    // Fallback to local data
+    return this.getFallbackResponse(userMessage, language);
+  }
+
+  // Query using Ollama LLM
+  private async queryWithOllama(userMessage: string, language: string): Promise<QueryResult> {
+    const systemContext = this.buildPriceContext();
+    
+    let systemPrompt = systemContext;
+    if (language === 'el') {
+      systemPrompt += '\n\nRespond in Greek. Use Greek names for stores and products when appropriate.';
+    } else {
+      systemPrompt += '\n\nRespond in English.';
+    }
+    systemPrompt += '\n\nBe concise and helpful. If you don\'t have price data for a product, say so.';
+
+    const messages: OllamaMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
+    ];
+
+    const answer = await this.chat(messages);
+    
+    // Try to extract product mentions from the answer
+    const mentionedProducts = products.filter(p => 
+      answer.toLowerCase().includes(p.name.toLowerCase()) ||
+      answer.toLowerCase().includes(p.nameGreek.toLowerCase())
+    );
+
+    return {
+      answer,
+      products: mentionedProducts,
+    };
+  }
+
+  // Get cheapest price for a product (with Ollama or fallback)
+  async getCheapestPrice(productName: string, language: string = 'en'): Promise<QueryResult> {
+    // Find product by name
+    const product = products.find(p => 
+      p.name.toLowerCase() === productName.toLowerCase() ||
+      p.nameGreek.toLowerCase() === productName.toLowerCase() ||
+      p.nameGreek.toLowerCase().includes(productName.toLowerCase()) ||
+      p.name.toLowerCase().includes(productName.toLowerCase())
+    );
+
+    if (!product) {
+      const answer = language === 'el' 
+        ? `Δεν βρήκα το προϊόν "${productName}" στη βάση δεδομένων.`
+        : `I couldn't find "${productName}" in the database.`;
+      return { answer };
+    }
+
+    // Use local data (fast and reliable)
+    return this.getCheapestPriceLocal(product, language);
   }
 }
 

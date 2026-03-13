@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ollamaService } from '../services/ollama';
@@ -28,6 +31,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOllamaConnected, setIsOllamaConnected] = useState<boolean | null>(null);
+  const [connectionChecked, setConnectionChecked] = useState(false);
 
   // Check Ollama connection on mount
   useEffect(() => {
@@ -37,6 +41,7 @@ export default function ChatScreen() {
   const checkConnection = async () => {
     const connected = await ollamaService.checkConnection();
     setIsOllamaConnected(connected);
+    setConnectionChecked(true);
   };
 
   const handleSend = async () => {
@@ -95,6 +100,14 @@ export default function ChatScreen() {
     setInput(question);
   };
 
+  const showConnectionHelp = () => {
+    Alert.alert(
+      t('ollamaDisconnected'),
+      t('ollamaHint'),
+      [{ text: 'OK' }]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -104,93 +117,114 @@ export default function ChatScreen() {
         <Text style={styles.title}>{t('chatTitle')}</Text>
         <TouchableOpacity onPress={toggleLanguage} style={styles.langButton}>
           <Text style={styles.langButtonText}>
-            {i18n.language === 'en' ? '🇬🇷 EL' : '🇬🇷 EN'}
+            {i18n.language === 'en' ? '🇬🇷 EL' : '🇬🇧 EN'}
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Connection Status */}
-      <View style={[
-        styles.statusBar,
-        isOllamaConnected ? styles.statusConnected : styles.statusDisconnected
-      ]}>
-        <View style={styles.statusDot} />
+      <TouchableOpacity 
+        onPress={showConnectionHelp}
+        style={[
+          styles.statusBar,
+          !connectionChecked ? styles.statusChecking :
+          isOllamaConnected ? styles.statusConnected : styles.statusDisconnected
+        ]}
+      >
+        <View style={[
+          styles.statusDot,
+          !connectionChecked ? styles.dotChecking :
+          isOllamaConnected ? styles.dotConnected : styles.dotDisconnected
+        ]} />
         <Text style={styles.statusText}>
-          {isOllamaConnected ? t('ollamaConnected') : t('ollamaDisconnected')}
+          {!connectionChecked ? 'Checking...' :
+           isOllamaConnected ? t('ollamaConnected') : t('ollamaDisconnected')}
         </Text>
-      </View>
+      </TouchableOpacity>
 
       {/* Messages */}
-      <ScrollView style={styles.messagesContainer} contentContainerStyle={styles.messagesContent}>
-        {messages.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{t('tagline')}</Text>
-            <Text style={styles.sampleTitle}>{t('sampleQuestions')}</Text>
-            <TouchableOpacity 
-              style={styles.sampleButton}
-              onPress={() => handleSampleQuestion(t('sample1'))}
-            >
-              <Text style={styles.sampleButtonText}>🥛 {t('sample1')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.sampleButton}
-              onPress={() => handleSampleQuestion(t('sample2'))}
-            >
-              <Text style={styles.sampleButtonText}>🧀 {t('sample2')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.sampleButton}
-              onPress={() => handleSampleQuestion(t('sample3'))}
-            >
-              <Text style={styles.sampleButtonText}>🫒 {t('sample3')}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {messages.map(msg => (
-          <View 
-            key={msg.id} 
-            style={[
-              styles.messageBubble,
-              msg.role === 'user' ? styles.userBubble : styles.assistantBubble
-            ]}
-          >
-            {msg.isLoading ? (
-              <ActivityIndicator size="small" color="#666" />
-            ) : (
-              <Text style={[
-                styles.messageText,
-                msg.role === 'user' ? styles.userText : styles.assistantText
-              ]}>
-                {msg.content}
-              </Text>
-            )}
-          </View>
-        ))}
-      </ScrollView>
-
-      {/* Input Area */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder={t('chatPlaceholder')}
-          placeholderTextColor="#999"
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity 
-          style={[
-            styles.sendButton,
-            (!input.trim() || isLoading) && styles.sendButtonDisabled
-          ]}
-          onPress={handleSend}
-          disabled={!input.trim() || isLoading}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView 
+          style={styles.messagesContainer} 
+          contentContainerStyle={styles.messagesContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.sendButtonText}>{t('sendButton')}</Text>
-        </TouchableOpacity>
-      </View>
+          {messages.length === 0 && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>{t('tagline')}</Text>
+              <Text style={styles.sampleTitle}>{t('sampleQuestions')}</Text>
+              <TouchableOpacity 
+                style={styles.sampleButton}
+                onPress={() => handleSampleQuestion(t('sample1'))}
+              >
+                <Text style={styles.sampleButtonText}>🥛 {t('sample1')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.sampleButton}
+                onPress={() => handleSampleQuestion(t('sample2'))}
+              >
+                <Text style={styles.sampleButtonText}>🧀 {t('sample2')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.sampleButton}
+                onPress={() => handleSampleQuestion(t('sample3'))}
+              >
+                <Text style={styles.sampleButtonText}>🫒 {t('sample3')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {messages.map(msg => (
+            <View 
+              key={msg.id} 
+              style={[
+                styles.messageBubble,
+                msg.role === 'user' ? styles.userBubble : styles.assistantBubble
+              ]}
+            >
+              {msg.isLoading ? (
+                <ActivityIndicator size="small" color="#666" />
+              ) : (
+                <Text style={[
+                  styles.messageText,
+                  msg.role === 'user' ? styles.userText : styles.assistantText
+                ]}>
+                  {msg.content}
+                </Text>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Input Area */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder={t('chatPlaceholder')}
+            placeholderTextColor="#999"
+            multiline
+            maxLength={500}
+            returnKeyType="send"
+            onSubmitEditing={handleSend}
+            blurOnSubmit={false}
+          />
+          <TouchableOpacity 
+            style={[
+              styles.sendButton,
+              (!input.trim() || isLoading) && styles.sendButtonDisabled
+            ]}
+            onPress={handleSend}
+            disabled={!input.trim() || isLoading}
+          >
+            <Text style={styles.sendButtonText}>{t('sendButton')}</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -232,6 +266,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  statusChecking: {
+    backgroundColor: '#fff3e0',
+  },
   statusConnected: {
     backgroundColor: '#e8f5e9',
   },
@@ -244,9 +281,21 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 8,
   },
+  dotChecking: {
+    backgroundColor: '#ff9800',
+  },
+  dotConnected: {
+    backgroundColor: '#4caf50',
+  },
+  dotDisconnected: {
+    backgroundColor: '#f44336',
+  },
   statusText: {
     fontSize: 12,
     color: '#666',
+  },
+  keyboardView: {
+    flex: 1,
   },
   messagesContainer: {
     flex: 1,
