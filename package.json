@@ -8,13 +8,13 @@
     "ios": "expo start --ios"
   },
   "dependencies": {
-    "expo": "52.0.37",
-    "expo-asset": "11.0.4",
+    "expo": "52.0.49",
+    "expo-asset": "11.0.5",
     "expo-status-bar": "2.0.1",
-    "expo-constants": "17.0.7",
+    "expo-constants": "17.0.8",
     "expo-localization": "16.0.1",
     "react": "18.3.1",
-    "react-native": "0.76.7",
+    "react-native": "0.76.9",
     "i18next": "24.2.3",
     "react-i18next": "15.4.1",
     "graphql": "16.10.0"
