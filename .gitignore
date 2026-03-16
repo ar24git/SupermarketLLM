@@ -36,6 +36,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# crawler
+scripts/crawler/node_modules/
+scripts/crawler/data/
+
 # generated native folders
 /ios
 /android
