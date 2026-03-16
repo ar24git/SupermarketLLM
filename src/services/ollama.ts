@@ -18,8 +18,24 @@ const getOllamaUrl = (): string => {
   return 'http://localhost:11434';
 };
 
+// ============================================
+// CONFIGURATION - Change your LLM here!
+// ============================================
+
+// Model name - qwen2.5:7b is excellent for Greek + multilingual
+// Alternative models you can try:
+// - 'qwen2.5:7b' - Best for Greek/multilingual (recommended)
+// - 'llama3.2:1b' - Fast, uses less RAM
+// - 'llama3.2:3b' - Good balance of speed and quality
+// - 'llama3:8b' - Larger, more capable
+// - 'mistral' - Good all-rounder
+//
+// To install a new model:
+//   ollama pull qwen2.5:7b
+//   ollama pull llama3.2:3b
+// ============================================
 const OLLAMA_BASE_URL = getOllamaUrl();
-const MODEL_NAME = 'llama3.2';
+const MODEL_NAME = 'qwen2.5:7b';
 
 interface OllamaMessage {
   role: 'user' | 'assistant' | 'system';
@@ -192,11 +208,11 @@ class OllamaService {
     
     let systemPrompt = systemContext;
     if (language === 'el') {
-      systemPrompt += '\n\nRespond in Greek. Use Greek names for stores and products when appropriate.';
+      systemPrompt += '\n\nRespond in Greek (Ελληνικά). Use Greek names for stores and products. Be helpful and concise. If you don\'t have price data for a product, say so clearly.';
     } else {
-      systemPrompt += '\n\nRespond in English.';
+      systemPrompt += '\n\nRespond in English. Be helpful and concise. If you don\'t have price data for a product, say so clearly.';
     }
-    systemPrompt += '\n\nBe concise and helpful. If you don\'t have price data for a product, say so.';
+    systemPrompt += '\n\nWhen comparing prices, always show the cheapest option first with the store name and price.';
 
     const messages: OllamaMessage[] = [
       { role: 'system', content: systemPrompt },
