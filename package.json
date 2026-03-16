@@ -5,7 +5,10 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "crawl:install": "cd scripts/crawler && npm install && npx playwright install chromium",
+    "crawl:basket": "npx tsx scripts/crawler/src/index.ts --mode basket",
+    "crawl:debug": "npx tsx scripts/crawler/src/index.ts --mode basket --headless false --debug"
   },
   "dependencies": {
     "expo": "52.0.49",
