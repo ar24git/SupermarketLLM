@@ -1,5 +1,8 @@
-import { Page } from 'playwright';
+import { Page, Browser } from 'playwright';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CONFIG } from '../config.js';
+import { newPage } from '../browser.js';
 
 export interface ProductPriceDetail {
   productId: string;
@@ -19,8 +22,8 @@ export async function scrapeProductDetail(
   const url = `${CONFIG.baseUrl}/product/${productId}`;
 
   try {
-    await page.goto(url, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(3_000);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await page.waitForSelector('.product-market-container, .product-name', { timeout: 8_000 }).catch(() => {});
 
     const data = await page.evaluate(`
       (function() {
@@ -111,4 +114,80 @@ export async function scrapeProductDetails(
   }
 
   return results;
+}
+
+/**
+ * Scrape product detail pages in parallel using N worker pages.
+ * Supports resume via a JSONL progress file: each completed product is appended
+ * as a single line. On restart, already-seen IDs are skipped.
+ */
+export async function scrapeProductDetailsParallel(
+  headless: boolean,
+  productIds: string[],
+  concurrency: number,
+  progressPath: string,
+  debug = false
+): Promise<ProductPriceDetail[]> {
+  fs.mkdirSync(path.dirname(progressPath), { recursive: true });
+
+  const done = new Map<string, ProductPriceDetail>();
+  if (fs.existsSync(progressPath)) {
+    const lines = fs.readFileSync(progressPath, 'utf8').split('\n').filter(Boolean);
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line) as ProductPriceDetail;
+        if (entry?.productId) done.set(entry.productId, entry);
+      } catch { /* ignore malformed line */ }
+    }
+    console.log(`Resume: found ${done.size} already-scraped products in ${progressPath}`);
+  }
+
+  const todo = productIds.filter((id) => !done.has(id));
+  console.log(`To scrape: ${todo.length} (skipping ${productIds.length - todo.length} already done)`);
+
+  if (todo.length === 0) return [...done.values()];
+
+  // Shared queue
+  let cursor = 0;
+  let completed = 0;
+  const total = todo.length;
+  const progressStream = fs.createWriteStream(progressPath, { flags: 'a' });
+
+  const startedAt = Date.now();
+
+  async function worker(workerId: number): Promise<void> {
+    const page = await newPage(headless);
+    try {
+      while (true) {
+        const idx = cursor++;
+        if (idx >= todo.length) break;
+        const id = todo[idx];
+
+        const detail = await scrapeProductDetail(page, id, debug);
+        completed++;
+
+        if (detail && detail.retailerPrices.length > 0) {
+          done.set(id, detail);
+          progressStream.write(JSON.stringify(detail) + '\n');
+        }
+
+        if (completed % 20 === 0 || completed === total) {
+          const elapsed = (Date.now() - startedAt) / 1000;
+          const rate = completed / elapsed;
+          const eta = rate > 0 ? Math.round((total - completed) / rate) : 0;
+          console.log(
+            `  [${completed}/${total}] worker=${workerId} id=${id} ` +
+            `(${rate.toFixed(2)}/s, ETA ${Math.floor(eta / 60)}m${eta % 60}s)`
+          );
+        }
+      }
+    } finally {
+      await page.context().close().catch(() => {});
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, (_, i) => worker(i)));
+  progressStream.end();
+
+  return [...done.values()];
 }

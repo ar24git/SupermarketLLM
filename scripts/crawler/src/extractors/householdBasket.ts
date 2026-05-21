@@ -11,6 +11,7 @@ export interface BasketScrapeResult {
   products: RawBasketProduct[];
   chainNames: string[];
   scrapedAt: string;
+  emberProductIds?: string[];
 }
 
 export async function scrapeHouseholdBasket(
@@ -227,6 +228,10 @@ export async function scrapeHouseholdBasket(
 
   console.log(`  Extracted ${extracted.products.length} products, ${extracted.retailers.length} retailers`);
 
+  const emberProductIds: string[] = extracted.products
+    .map((p: any) => String(p.id || '').trim())
+    .filter((id: string) => id.length > 0);
+
   if (debug) {
     // Show sample products
     for (const p of extracted.products.slice(0, 3)) {
@@ -244,7 +249,9 @@ export async function scrapeHouseholdBasket(
   const hasRetailerPrices = extracted.products.some(p => p.rawPrices != null);
 
   if (hasRetailerPrices) {
-    return buildResultFromEmberData(extracted);
+    const r = buildResultFromEmberData(extracted);
+    r.emberProductIds = emberProductIds;
+    return r;
   }
 
   // Products only have min/max/avg prices, no per-retailer breakdown.
@@ -253,12 +260,15 @@ export async function scrapeHouseholdBasket(
 
   const basketResult = await scrapeBasketByRetailer(page, extracted, debug);
   if (basketResult && basketResult.products.length > 0) {
+    basketResult.emberProductIds = emberProductIds;
     return basketResult;
   }
 
   // Fallback: use avgPrice as a single price point (no per-retailer breakdown)
   console.log('Using average prices as fallback (no per-retailer breakdown available)...');
-  return buildResultWithAvgPrices(extracted);
+  const r = buildResultWithAvgPrices(extracted);
+  r.emberProductIds = emberProductIds;
+  return r;
 }
 
 function buildResultFromEmberData(extracted: {

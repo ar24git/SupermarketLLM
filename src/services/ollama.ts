@@ -1,20 +1,23 @@
 import { Product, Store, PriceEntry, QueryResult } from '../types';
 import { products, stores, prices, getPricesForProduct, findCheapestPrice, getProductById, getStoreById } from '../data/superMarkets';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 // Get Ollama URL from environment or use default
 // For mobile, you need to use your computer's IP address, not localhost
 const getOllamaUrl = (): string => {
-  // Check if we're in development mode
+  // On web, always use localhost (Ollama binds to 127.0.0.1 by default)
+  if (Platform.OS === 'web') {
+    return 'http://localhost:11434';
+  }
+
+  // Native: derive computer's IP from Expo hostUri so the device can reach the host
   const debuggerHost = Constants.expoConfig?.hostUri;
-  
   if (debuggerHost) {
-    // Running in Expo Go - extract IP from hostUri (format: "192.168.1.5:8081")
     const ip = debuggerHost.split(':')[0];
     return `http://${ip}:11434`;
   }
-  
-  // Fallback to localhost (for web/testing)
+
   return 'http://localhost:11434';
 };
 
