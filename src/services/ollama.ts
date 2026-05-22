@@ -1,5 +1,6 @@
 import { Product, Store, PriceEntry, QueryResult } from '../types';
 import { products, stores, prices, getPricesForProduct, findCheapestPrice, getProductById, getStoreById } from '../data/superMarkets';
+import { buildFactsBlock, searchProducts, allStores } from './priceIndex';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
@@ -84,7 +85,7 @@ class OllamaService {
   // Send a chat message to Ollama
   async chat(messages: OllamaMessage[]): Promise<string> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
     
     try {
       const response = await fetch(`${this.baseUrl}/api/chat`, {
@@ -114,49 +115,68 @@ class OllamaService {
     }
   }
 
-  // Build context from price data
-  private buildPriceContext(): string {
-    let context = 'You are a helpful Greek supermarket price comparison assistant. ';
-    context += 'You have access to price data from the following stores: ';
-    context += stores.map(s => s.name).join(', ') + '. ';
-    context += '\n\nAvailable products:\n';
-    
-    products.forEach(p => {
-      context += `- ${p.name} (${p.nameGreek}): ${p.category}, ${p.unit}\n`;
-    });
-    
-    context += '\nCurrent prices (EUR):\n';
-    prices.forEach(p => {
-      const product = getProductById(p.productId);
-      const store = getStoreById(p.storeId);
-      if (product && store) {
-        context += `- ${product.name} at ${store.name}: €${p.price.toFixed(2)} per ${product.unit}\n`;
-      }
-    });
-    
-    return context;
+  // Build a focused, pre-sorted context for the LLM.
+  //
+  // Strategy: do the heavy lifting in code (search, sort, aggregate) and let
+  // the LLM only handle phrasing. The facts block is generated from the
+  // pre-built indexes in ./priceIndex, so it's O(1) lookup per match instead
+  // of scanning ~16k prices on every query.
+  private buildPriceContext(userMessage: string, language: 'en' | 'el'): string {
+    const storeList = allStores
+      .map((s) => (language === 'el' ? s.nameGreek : s.name))
+      .join(', ');
+
+    // TSV is ~40% fewer tokens than prose for the same data.
+    const facts = buildFactsBlock(userMessage, language, 8, 'tsv');
+
+    const intro =
+      language === 'el'
+        ? `Είσαι βοηθός σύγκρισης τιμών σε ελληνικά σούπερ μάρκετ. Καταστήματα: ${storeList}.`
+        : `You are a Greek supermarket price comparison assistant. Stores: ${storeList}.`;
+
+    if (!facts) {
+      return (
+        intro +
+        '\n\n' +
+        (language === 'el'
+          ? 'Δεν βρέθηκαν σχετικά προϊόντα στη βάση δεδομένων για αυτό το ερώτημα. Πες το ευγενικά στον χρήστη.'
+          : 'No relevant products were found in the database for this query. Politely tell the user.')
+      );
+    }
+
+    const dataHeader =
+      language === 'el'
+        ? 'Δεδομένα (TSV, ταξινομημένα από τη φθηνότερη τιμή, rank=1 είναι το φθηνότερο):'
+        : 'Data (TSV, sorted cheapest-first, rank=1 is the cheapest):';
+
+    const rules =
+      language === 'el'
+        ? 'Χρησιμοποίησε ΜΟΝΟ τα παραπάνω δεδομένα. Μην εφεύρεις τιμές ή καταστήματα. Ξεκίνα πάντα με το φθηνότερο κατάστημα (rank=1). Απάντησε σε φυσική γλώσσα, όχι TSV.'
+        : 'Use ONLY the data above. Do not invent prices or stores. Always lead with the cheapest store (rank=1). Respond in natural language, not TSV.';
+
+    return [intro, '', dataHeader, '```tsv', facts, '```', '', rules].join('\n');
   }
 
-  // Fallback response when Ollama is not available
+  // Fallback response when Ollama is not available. Uses the same precomputed
+  // index as the LLM path so users still get a useful (if less natural) answer.
   private getFallbackResponse(userMessage: string, language: string): QueryResult {
-    const message = userMessage.toLowerCase();
-    
-    // Try to find product mentioned
-    const product = products.find(p => 
-      message.includes(p.name.toLowerCase()) ||
-      message.includes(p.nameGreek.toLowerCase())
-    );
+    const lang: 'en' | 'el' = language === 'el' ? 'el' : 'en';
+    const matches = searchProducts(userMessage, 5);
 
-    if (!product) {
+    if (matches.length === 0) {
       return {
-        answer: language === 'el' 
-          ? 'Λυπάμαι, δεν μπορώ να συνδεθώ με το Ollama και δεν αναγνώρισα το προϊόν. Παρακαλώ ξεκίνα το Ollama στον υπολογιστή σου.'
-          : 'Sorry, I cannot connect to Ollama and didn\'t recognize the product. Please start Ollama on your computer.',
+        answer:
+          lang === 'el'
+            ? 'Δεν βρήκα σχετικά προϊόντα. Δοκίμασε άλλες λέξεις κλειδιά.'
+            : "I couldn't find any matching products. Try different keywords.",
       };
     }
 
-    // Return cheapest price from local data
-    return this.getCheapestPriceLocal(product, language);
+    const facts = buildFactsBlock(userMessage, lang, 5, 'human');
+    return {
+      answer: facts,
+      products: matches.map((m) => m.product),
+    };
   }
 
   // Get cheapest price using local data (no LLM)
@@ -207,15 +227,8 @@ class OllamaService {
 
   // Query using Ollama LLM
   private async queryWithOllama(userMessage: string, language: string): Promise<QueryResult> {
-    const systemContext = this.buildPriceContext();
-    
-    let systemPrompt = systemContext;
-    if (language === 'el') {
-      systemPrompt += '\n\nRespond in Greek (Ελληνικά). Use Greek names for stores and products. Be helpful and concise. If you don\'t have price data for a product, say so clearly.';
-    } else {
-      systemPrompt += '\n\nRespond in English. Be helpful and concise. If you don\'t have price data for a product, say so clearly.';
-    }
-    systemPrompt += '\n\nWhen comparing prices, always show the cheapest option first with the store name and price.';
+    const lang: 'en' | 'el' = language === 'el' ? 'el' : 'en';
+    const systemPrompt = this.buildPriceContext(userMessage, lang);
 
     const messages: OllamaMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -223,12 +236,10 @@ class OllamaService {
     ];
 
     const answer = await this.chat(messages);
-    
-    // Try to extract product mentions from the answer
-    const mentionedProducts = products.filter(p => 
-      answer.toLowerCase().includes(p.name.toLowerCase()) ||
-      answer.toLowerCase().includes(p.nameGreek.toLowerCase())
-    );
+
+    // Surface the same matched products we showed the model, so the UI can
+    // link / highlight them deterministically without scanning the LLM output.
+    const mentionedProducts = searchProducts(userMessage, 8).map((f) => f.product);
 
     return {
       answer,

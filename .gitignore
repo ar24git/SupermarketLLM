@@ -42,6 +42,10 @@ yarn-error.*
 scripts/crawler/node_modules/
 scripts/crawler/data/
 
+# enrich
+scripts/enrich/node_modules/
+scripts/enrich/data/
+
 # generated native folders
 /ios
 /android
