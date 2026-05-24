@@ -3,10 +3,16 @@ import * as path from 'path';
 
 // -------- Config --------
 
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+// Base URL: local Ollama by default, or Ollama Cloud (https://ollama.com).
+// OLLAMA_BASE_URL is the canonical name; OLLAMA_URL kept as alias for back-compat.
+const OLLAMA_URL =
+  process.env.OLLAMA_BASE_URL || process.env.OLLAMA_URL || 'http://localhost:11434';
+// API key for Ollama Cloud (https://ollama.com). Unset for local Ollama.
+const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '';
+const IS_CLOUD = OLLAMA_API_KEY.length > 0 || /ollama\.com/.test(OLLAMA_URL);
 const MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b';
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '4', 10);
-const TIMEOUT_MS = 60_000;
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || (IS_CLOUD ? '10' : '4'), 10);
+const TIMEOUT_MS = IS_CLOUD ? 90_000 : 60_000;
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..', '..');
 const scrapedDataPath = path.join(repoRoot, 'scripts', 'crawler', 'data', 'scraped-data.json');
@@ -65,9 +71,12 @@ async function classify(product: SourceProduct): Promise<EnrichedProduct | null>
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (OLLAMA_API_KEY) headers['Authorization'] = `Bearer ${OLLAMA_API_KEY}`;
+
     const res = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model: MODEL,
         messages: [
@@ -127,8 +136,18 @@ Critical rules:
 - "ΤΥΡΙ ΚΡΕΜΑ" (cream cheese) -> productType="cheese", subtype="cream".
 - Packaging codes like "12/1L" mean 12 packs of 1L; set packCount=12, sizeMl=1000.
 - "650G" -> sizeG=650. "1. 5L" or "1.5L" -> sizeMl=1500.
-- Common Greek abbreviations: ΓΑΛ.=γάλακτος/milk, ΣΟΚ.=σοκολάτα/chocolate, ΦΡΕΣ.=φρέσκο/fresh, ΕΛΑΦΡ.=ελαφρύ/light, ΠΛΗΡΕΣ=full-fat, Υ.Π.=υψηλής παστερίωσης/high-pasteurized.
+- Common Greek abbreviations: ΓΑΛ.=γάλακτος/milk, ΣΟΚ.=σοκολάτα/chocolate, ΦΡΕΣ.=φρέσκο/fresh, ΕΛΑΦΡ.=ελαφρύ/light, ΠΛΗΡΕΣ=full-fat, Υ.Π.=υψηλής παστερίωσης/high-pasteurized, ΑΦ.=αφρόλουτρο/shower-foam, ΓΑΡΟΣ=fish sauce, ΑΛΜΗ=brine, ΚΡΑΝΜΠ.=cranberry, ΡΑΣΜΠ.=raspberry, ΜΠΛΟΥΜΠ.=blueberry.
 - Be specific in categoryClean. Use exact slash format, no spaces.
+
+DANGER ZONE — common mistakes to avoid. The product name often contains "γάλα"-related fragments that are NOT milk. Study these:
+- "LE PETIT MARSEILLAIS VANILLA ΑΦ. 12/650ML" -> productType="soap", subtype="shower_foam", categoryClean="Household/Soap". "ΑΦ." = αφρόλουτρο (shower foam). NOT milk.
+- "ΚΙΣΣΑΣ ΑΛΜΗ ΓΑΡΟΣ 12/1LT" -> productType="fish_sauce", categoryClean="Pantry/Sauce". γάρος is fish sauce / brine. NOT milk.
+- "LIFE ΚΡΑΝΜΠ.-ΡΑΣΜΠ.-ΜΠΛΟΥΜΠ. ΜΠ. 12/1L" -> productType="juice", categoryClean="Beverages/Juice". This is a berry juice blend. NOT milk.
+- "LACTA ΣΟΚΟΛΑΤΑ ΓΑΛΑΚΤΟΣ 14/85G" -> productType="chocolate", categoryClean="Snacks/Chocolate". A chocolate bar. NOT milk.
+- "PHILADELPHIA ΤΥΡΙ ΚΡΕΜΑ 20/200G" -> productType="cheese", subtype="cream", categoryClean="Dairy/Cheese". NOT cream and NOT milk.
+- "QUAKER ΤΡΑΓ. ΜΠΟΥΚΙΕΣ ΣΟΚ. ΓΑΛΑΚ. 12/450G" -> productType="cereal", categoryClean="Breakfast/Cereal". A cereal product. NOT milk.
+
+If unsure, lower the confidence. Better confidence=0.4 with correct type than confidence=0.95 with wrong type.
 
 Return ONLY the JSON object. No prose, no markdown.`;
 }

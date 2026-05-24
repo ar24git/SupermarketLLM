@@ -4,42 +4,40 @@ import { buildFactsBlock, searchProducts, allStores } from './priceIndex';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// Get Ollama URL from environment or use default
-// For mobile, you need to use your computer's IP address, not localhost
-const getOllamaUrl = (): string => {
-  // On web, always use localhost (Ollama binds to 127.0.0.1 by default)
-  if (Platform.OS === 'web') {
-    return 'http://localhost:11434';
-  }
+// ============================================
+// CONFIGURATION
+// ============================================
+//
+// We always talk to LOCAL Ollama on this machine — it acts as a transparent
+// proxy. If you give it a model with the ":cloud" suffix (e.g.
+// "qwen3-coder-next:cloud") and you've previously run `ollama signin`, the
+// local daemon forwards to ollama.com for you. This avoids two problems:
+//
+//   1. CORS — ollama.com does not return Access-Control-Allow-Origin headers,
+//      so the browser blocks direct cloud calls from the React Native web app.
+//      Local daemon does send the right CORS headers.
+//   2. Secret leakage — no API key needs to live in the JS bundle.
+//
+// Override the model via EXPO_PUBLIC_OLLAMA_MODEL in .env. Examples:
+//   qwen3-coder-next:cloud  (default — cloud-backed, very accurate)
+//   gemma4:e4b-mlx          (purely local, fast on Apple Silicon)
+//   qwen2.5:7b              (purely local, more accurate but slower)
+// ============================================
 
-  // Native: derive computer's IP from Expo hostUri so the device can reach the host
+const DEFAULT_MODEL = 'qwen3-coder-next:cloud';
+
+const getOllamaUrl = (): string => {
+  if (Platform.OS === 'web') return 'http://localhost:11434';
   const debuggerHost = Constants.expoConfig?.hostUri;
   if (debuggerHost) {
     const ip = debuggerHost.split(':')[0];
     return `http://${ip}:11434`;
   }
-
   return 'http://localhost:11434';
 };
 
-// ============================================
-// CONFIGURATION - Change your LLM here!
-// ============================================
-
-// Model name - qwen2.5:7b is excellent for Greek + multilingual
-// Alternative models you can try:
-// - 'qwen2.5:7b' - Best for Greek/multilingual (recommended)
-// - 'llama3.2:1b' - Fast, uses less RAM
-// - 'llama3.2:3b' - Good balance of speed and quality
-// - 'llama3:8b' - Larger, more capable
-// - 'mistral' - Good all-rounder
-//
-// To install a new model:
-//   ollama pull qwen2.5:7b
-//   ollama pull llama3.2:3b
-// ============================================
 const OLLAMA_BASE_URL = getOllamaUrl();
-const MODEL_NAME = 'qwen2.5:7b';
+const MODEL_NAME = process.env.EXPO_PUBLIC_OLLAMA_MODEL ?? DEFAULT_MODEL;
 
 interface OllamaMessage {
   role: 'user' | 'assistant' | 'system';
@@ -63,16 +61,16 @@ class OllamaService {
     this.model = model;
   }
 
-  // Check if Ollama is running
+  // Check if local Ollama is reachable (browser CORS friendly).
   async checkConnection(): Promise<boolean> {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
+
       const response = await fetch(`${this.baseUrl}/api/tags`, {
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
       this.isConnected = response.ok;
       return response.ok;
@@ -82,17 +80,16 @@ class OllamaService {
     }
   }
 
-  // Send a chat message to Ollama
+  // Send a chat message via local Ollama (which transparently proxies
+  // :cloud models to ollama.com if you've run `ollama signin`).
   async chat(messages: OllamaMessage[]): Promise<string> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-    
+
     try {
       const response = await fetch(`${this.baseUrl}/api/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: this.model,
           messages,
@@ -126,8 +123,9 @@ class OllamaService {
       .map((s) => (language === 'el' ? s.nameGreek : s.name))
       .join(', ');
 
-    // TSV is ~40% fewer tokens than prose for the same data.
-    const facts = buildFactsBlock(userMessage, language, 8, 'tsv');
+    // One row per matching product, only the cheapest store. Minimal tokens
+    // and minimal room for the LLM to misinterpret packaging codes.
+    const facts = buildFactsBlock(userMessage, language, 8, 'cheapest');
 
     const intro =
       language === 'el'
@@ -146,15 +144,27 @@ class OllamaService {
 
     const dataHeader =
       language === 'el'
-        ? 'Δεδομένα (TSV, ταξινομημένα από τη φθηνότερη τιμή, rank=1 είναι το φθηνότερο):'
-        : 'Data (TSV, sorted cheapest-first, rank=1 is the cheapest):';
+        ? 'Δεδομένα: ένα προϊόν ανά γραμμή με τη φθηνότερη τιμή του:'
+        : 'Data: one row per product with its cheapest price:';
 
     const rules =
       language === 'el'
-        ? 'Χρησιμοποίησε ΜΟΝΟ τα παραπάνω δεδομένα. Μην εφεύρεις τιμές ή καταστήματα. Ξεκίνα πάντα με το φθηνότερο κατάστημα (rank=1). Απάντησε σε φυσική γλώσσα, όχι TSV.'
-        : 'Use ONLY the data above. Do not invent prices or stores. Always lead with the cheapest store (rank=1). Respond in natural language, not TSV.';
+        ? [
+            'Κανόνες:',
+            '- Χρησιμοποίησε ΜΟΝΟ τα δεδομένα. Μην εφεύρεις τιμές ή καταστήματα.',
+            '- Μην αναλύεις τις συσκευασίες (π.χ. "12/1L"). Παρουσίασε τα ονόματα όπως είναι.',
+            '- Μην ομαδοποιείς ούτε να κατηγοριοποιείς. Απλώς απαρίθμησε.',
+            '- Απάντησε στα Ελληνικά, σε φυσική γλώσσα, σύντομα.',
+          ].join('\n')
+        : [
+            'Rules:',
+            '- Use ONLY the data above. Do not invent prices or stores.',
+            '- Do not interpret packaging codes (e.g. "12/1L"). Show product names verbatim.',
+            '- Do not group or recategorize. Just list them.',
+            '- Respond in English, in natural language, concise.',
+          ].join('\n');
 
-    return [intro, '', dataHeader, '```tsv', facts, '```', '', rules].join('\n');
+    return [intro, '', dataHeader, '```', facts, '```', '', rules].join('\n');
   }
 
   // Fallback response when Ollama is not available. Uses the same precomputed
