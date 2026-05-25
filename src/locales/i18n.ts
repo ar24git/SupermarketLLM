@@ -78,6 +78,12 @@ const resources = {
         totalChains: 'Chains',
         totalPrices: 'Price points',
         avgPrice: 'Avg price',
+        // Avg price trend card
+        avgTrend: 'Avg price trend',
+        avgTrendHint: 'Tap to compare with the {{date}} snapshot.',
+        avgTrendHintNoBaseline: 'No earlier snapshot to compare against yet.',
+        avgTrendModalHint: 'Each chain\'s current average price vs the {{date}} snapshot.',
+        was: 'was',
         // Chain leaderboard
         chainLeaderboard: 'Cheapest chain leaderboard',
         chainLeaderboardHint: 'How many products each chain offers at the lowest price.',
@@ -175,6 +181,12 @@ const resources = {
         totalChains: 'Αλυσίδες',
         totalPrices: 'Σημεία τιμών',
         avgPrice: 'Μέση τιμή',
+        // Avg price trend card
+        avgTrend: 'Τάση μέσης τιμής',
+        avgTrendHint: 'Πάτησε για σύγκριση με τη φωτογραφία της {{date}}.',
+        avgTrendHintNoBaseline: 'Δεν υπάρχει προηγούμενη φωτογραφία για σύγκριση.',
+        avgTrendModalHint: 'Μέση τιμή ανά αλυσίδα σήμερα σε σύγκριση με τη φωτογραφία της {{date}}.',
+        was: 'ήταν',
         // Chain leaderboard
         chainLeaderboard: 'Κατάταξη φθηνότερων αλυσίδων',
         chainLeaderboardHint: 'Σε πόσα προϊόντα κάθε αλυσίδα έχει τη φθηνότερη τιμή.',
