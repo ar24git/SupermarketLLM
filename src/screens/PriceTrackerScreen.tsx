@@ -1,877 +1,751 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  Dimensions,
-  ActivityIndicator,
   TouchableOpacity,
   TextInput,
+  SafeAreaView,
 } from 'react-native';
-// @ts-ignore - Chart components work at runtime despite type issues
-import {
-  BarChart,
-  PieChart,
-} from 'react-native-chart-kit';
 import { useTranslation } from 'react-i18next';
 
-// Top 100 Common Items Index - Greek Market Items
-const commonItems = [
-  // Ψωμί και Ζαχαροπλαστικά
-  { id: 1, name: 'Λευκό ψωμί', category: 'Ψωμί' },
-  { id: 2, name: 'Ολικής αλέσεως ψωμί', category: 'Ψωμί' },
-  { id: 3, name: 'Σούρ ντου', category: 'Ψωμί' },
-  { id: 4, name: 'Μπαγκέτα', category: 'Ψωμί' },
-  { id: 5, name: 'Κρουασάν', category: 'Ζαχαροπλαστικά' },
-  { id: 6, name: 'Παγωτό κακάο', category: 'Ζαχαροπλαστικά' },
-  { id: 7, name: 'Τσιαμπούρι', category: 'Ψωμί' },
-  { id: 8, name: 'Ρύζι', category: 'Ψωμί' },
-  { id: 9, name: 'Πολυδαπέδο ψωμί', category: 'Ψωμί' },
-  { id: 10, name: 'Ψωμί τοστ', category: 'Ψωμί' },
-  
-  // Γαλακτοκομικά
-  { id: 11, name: 'Ολοκατεργασμένο γάλα', category: 'Γαλακτοκομικά' },
-  { id: 12, name: 'Αποσταγμένο γάλα', category: 'Γαλακτοκομικά' },
-  { id: 13, name: 'Γκρίκ γιαούρτι', category: 'Γαλακτοκομικά' },
-  { id: 14, name: 'Φυσικό γιαούρτι', category: 'Γαλακτοκομικά' },
-  { id: 15, name: 'Βούτυρο', category: 'Γαλακτοκομικά' },
-  { id: 16, name: 'Τυρί τσίζ', category: 'Γαλακτοκομικά' },
-  { id: 17, name: 'Φέτα', category: 'Γαλακτοκομικά' },
-  { id: 18, name: 'Μοτσαρέλα', category: 'Γαλακτοκομικά' },
-  { id: 19, name: 'Αυγά (12άρι)', category: 'Γαλακτοκομικά' },
-  { id: 20, name: 'Κουραμπιές τυρί', category: 'Γαλακτοκομικά' },
-  
-  // Κρέας και Πουλερικά
-  { id: 21, name: 'Στήθος κοτόπουλου', category: 'Κρέας' },
-  { id: 22, name: 'Χοιρινό κρέας', category: 'Κρέας' },
-  { id: 23, name: 'Χοιρινά ραντιέρα', category: 'Κρέας' },
-  { id: 24, name: 'Σαουσίσια', category: 'Κρέας' },
-  { id: 25, name: 'Μπέικον', category: 'Κρέας' },
-  { id: 26, name: 'Αρνίσια ραντιέρα', category: 'Κρέας' },
-  { id: 27, name: 'Ινδικό στήθος', category: 'Κρέας' },
-  { id: 28, name: 'Βοδινό ραντιέρα', category: 'Κρέας' },
-  { id: 29, name: 'Χαμόνι', category: 'Κρέας' },
-  { id: 30, name: 'Πάτσα', category: 'Κρέας' },
-  
-  // Ψάρι και Θαλασσινά
-  { id: 31, name: 'Ψαρί σομίνα', category: 'Ψάρι' },
-  { id: 32, name: 'Καντάτο ψαρί', category: 'Ψάρι' },
-  { id: 33, name: 'Γαρίδες', category: 'Θαλασσινά' },
-  { id: 34, name: 'Κωδονίτσα', category: 'Ψάρι' },
-  { id: 35, name: 'Σαρδέλες σε λάδι', category: 'Ψάρι' },
-  { id: 36, name: 'Μακρελί', category: 'Ψάρι' },
-  { id: 37, name: 'Μύτιλα', category: 'Θαλασσινά' },
-  { id: 38, name: 'Καλαμάρι', category: 'Θαλασσινά' },
-  { id: 39, name: 'Χταπόδι', category: 'Θαλασσινά' },
-  { id: 40, name: 'Λαγιάδα', category: 'Ψάρι' },
-  
-  // Φρούτα
-  { id: 41, name: 'Μήλα (1κg)', category: 'Φρούτα' },
-  { id: 42, name: 'Καρπούζι (1κg)', category: 'Φρούτα' },
-  { id: 43, name: 'Πορτοκάλια (1κg)', category: 'Φρούτα' },
-  { id: 44, name: 'Σταφύλια', category: 'Φρούτα' },
-  { id: 45, name: 'Φράουλες', category: 'Φρούτα' },
-  { id: 46, name: 'Μορφίτσες', category: 'Φρούτα' },
-  { id: 47, name: 'Καρπούζι', category: 'Φρούτα' },
-  { id: 48, name: 'Ανανάς', category: 'Φρούτα' },
-  { id: 49, name: 'Μάνγκο', category: 'Φρούτα' },
-  { id: 50, name: 'Αχλάδια', category: 'Φρούτα' },
-  
-  // Λαχανικά
-  { id: 51, name: 'Πατάτες (1κg)', category: 'Λαχανικά' },
-  { id: 52, name: 'Καρότα (1κg)', category: 'Λαχανικά' },
-  { id: 53, name: 'Ντομάτες (1κg)', category: 'Λαχανικά' },
-  { id: 54, name: 'Κρεμύδια (1κg)', category: 'Λαχανικά' },
-  { id: 55, name: 'Χόρτα', category: 'Λαχανικά' },
-  { id: 56, name: 'Αγγούρι', category: 'Λαχανικά' },
-  { id: 57, name: 'Πιπεριές', category: 'Λαχανικά' },
-  { id: 58, name: 'Μπρόκολο', category: 'Λαχανικά' },
-  { id: 59, name: 'Σπανάκι', category: 'Λαχανικά' },
-  { id: 60, name: 'Μαντζαράκια', category: 'Λαχανικά' },
-  
-  // Αποθήκευση
-  { id: 61, name: 'Ρύζι (1κg)', category: 'Αποθήκη' },
-  { id: 62, name: 'Μακaronία', category: 'Αποθήκη' },
-  { id: 63, name: 'Ελαιόλαδο', category: 'Αποθήκη' },
-  { id: 64, name: 'Ηλιόσπορο', category: 'Αποθήκη' },
-  { id: 65, name: 'Αλεύρι', category: 'Αποθήκη' },
-  { id: 66, name: 'Ζάχαρη', category: 'Αποθήκη' },
-  { id: 67, name: 'Καφές', category: 'Αποθήκη' },
-  { id: 68, name: 'Τσάι', category: 'Αποθήκη' },
-  { id: 69, name: 'Αρακάς', category: 'Αποθήκη' },
-  { id: 70, name: 'Μέλι', category: 'Αποθήκη' },
-  
-  // Συντηρημένα
-  { id: 71, name: 'Παστώτι ντομάτας', category: 'Συντηρημένα' },
-  { id: 72, name: 'Φάκες συντηρημένες', category: 'Συντηρημένα' },
-  { id: 73, name: 'Κοκκινές ντομάτες', category: 'Συντηρημένα' },
-  { id: 74, name: 'Ψωμί συντηρημένο', category: 'Συντηρημένα' },
-  { id: 75, name: 'Ψαρί σε λάδι', category: 'Συντηρημένα' },
-  { id: 76, name: 'Σαρδέλες σε λάδι', category: 'Συντηρημένα' },
-  { id: 77, name: 'Χορταρικά συντηρημένα', category: 'Συντηρημένα' },
-  { id: 78, name: 'Φάσελη συντηρημένες', category: 'Συντηρημένα' },
-  { id: 79, name: 'Μπικόνι συντηρημένο', category: 'Συντηρημένα' },
-  { id: 80, name: 'Συμπυκνωμένο γάλα', category: 'Συντηρημένα' },
-  
-  // Ποτά
-  { id: 81, name: 'Ελληνικό νερό (1.5L)', category: 'Ποτά' },
-  { id: 82, name: 'Νεκτάρ πορτοκάλι', category: 'Ποτά' },
-  { id: 83, name: 'Κολά', category: 'Ποτά' },
-  { id: 84, name: 'Λεμονάδα', category: 'Ποτά' },
-  { id: 85, name: 'Ενεργειακό ποτό', category: 'Ποτά' },
-  { id: 86, name: 'Νεκτάρ αχλαδιού', category: 'Ποτά' },
-  { id: 87, name: 'Αναερόβιο νερό', category: 'Ποτά' },
-  { id: 88, name: 'Κόκκινο κρασί', category: 'Ποτά' },
-  { id: 89, name: 'Λευκό κρασί', category: 'Ποτά' },
-  { id: 90, name: 'Μπύρα', category: 'Ποτά' },
-  
-  // Γλυκά και Σνακ
-  { id: 91, name: 'Σοκολάτα', category: 'Γλυκά' },
-  { id: 92, name: 'Ψηλάφια', category: 'Σνακ' },
-  { id: 93, name: 'Μπισκότα', category: 'Γλυκά' },
-  { id: 94, name: 'Κράκερ', category: 'Σνακ' },
-  { id: 95, name: 'Μαλακός', category: 'Σνακ' },
-  { id: 96, name: 'Γρανόλα μπαρ', category: 'Σνακ' },
-  { id: 97, name: 'Παγωτό', category: 'Γλυκά' },
-  { id: 98, name: 'Ποπκόρν', category: 'Σνακ' },
-  { id: 99, name: 'Ξηροί καρποί', category: 'Σνακ' },
-  { id: 100, name: 'Νουτκάκι', category: 'Γλυκά' },
-];
+import { products } from '../data/superMarkets';
+import {
+  allStores,
+  getFacts,
+  listTopCategories,
+  ProductFacts,
+} from '../services/priceIndex';
+import { Store } from '../types';
 
-// Supermarket data
-const supermarkets = [
-  { id: 'carrefour', name: 'Carrefour', color: '#1e88e5' },
-  { id: 'makro', name: 'Makro', color: '#43a047' },
-  { id: 'bazaar', name: 'Bazaar', color: '#e53935' },
-  { id: 'green', name: 'Green Market', color: '#8e24aa' },
-];
+// ============================================================================
+// Stats computed once at module load — the catalog is static at runtime so we
+// don't need to recompute these per render.
+// ============================================================================
 
-// Price data structure with current and previous prices for change tracking
-interface PriceEntry {
-  currentPrice: number;
-  previousPrice: number;
-  change: number;
-  changePercent: number;
+interface ChainStat {
+  store: Store;
+  /** Number of products where this chain offers the lowest price. */
+  wins: number;
+  /** Average price across all products this chain carries. */
+  avgPrice: number;
+  /** Number of distinct products carried by this chain. */
+  productsStocked: number;
 }
 
-interface ItemData {
-  id: number;
-  name: string;
-  category: string;
-  storePrices: Record<string, PriceEntry>;
+interface DealRow {
+  facts: ProductFacts;
+  /** priciest - cheapest (€). */
+  spread: number;
+  /** spread / cheapest * 100. */
+  spreadPercent: number;
 }
 
-// Generate realistic Greek prices
-function generatePriceData(): ItemData[] {
-  return commonItems.map((item, index) => {
-    // Base price based on category
-    let basePrice = 2;
-    if (item.category === 'Φρούτα' || item.category === 'Λαχανικά') basePrice = 1.5;
-    else if (item.category === 'Ψωμί') basePrice = 1.8;
-    else if (item.category === 'Κρέας') basePrice = 12;
-    else if (item.category === 'Ψάρι') basePrice = 10;
-    else if (item.category === 'Αποθήκη') basePrice = 3;
-    else if (item.category === 'Ποτά') basePrice = 2;
-    else if (item.category === 'Γαλακτοκομικά') basePrice = 4;
-    else if (item.category === 'Ζαχαροπλαστικά') basePrice = 3;
-    else if (item.category === 'Σνακ' || item.category === 'Γλυκά') basePrice = 2.5;
-
-    const storePrices: Record<string, PriceEntry> = {};
-    
-    supermarkets.forEach((store, storeIndex) => {
-      // Generate price with store-specific variance
-      const variance = 0.8 + (storeIndex * 0.05) + (Math.random() * 0.3);
-      const currentPrice = parseFloat((basePrice * variance).toFixed(2));
-      
-      // Previous price (5-10% different for change tracking)
-      const prevVariance = variance * (0.9 + Math.random() * 0.2);
-      const previousPrice = parseFloat((basePrice * prevVariance).toFixed(2));
-      
-      const change = currentPrice - previousPrice;
-      const changePercent = parseFloat(((change / previousPrice) * 100).toFixed(2));
-      
-      storePrices[store.id] = {
-        currentPrice,
-        previousPrice,
-        change,
-        changePercent,
-      };
-    });
-
-    return {
-      id: item.id,
-      name: item.name,
-      category: item.category,
-      storePrices,
-    };
-  });
+interface OverallStats {
+  totalProducts: number;
+  totalChains: number;
+  totalPriceEntries: number;
+  avgPrice: number;
 }
 
-// Get top items for charts
-function getTopItems(items: ItemData[], count: number = 15) {
-  return items.slice(0, count).map((item) => ({
-    name: item.name,
-    category: item.category,
-    carrefour: item.storePrices.carrefour.currentPrice,
-    makro: item.storePrices.makro.currentPrice,
-    bazaar: item.storePrices.bazaar.currentPrice,
-    green: item.storePrices.green.currentPrice,
-  }));
-}
+const allFacts: ProductFacts[] = products
+  .map((p) => getFacts(p.id))
+  .filter((f): f is ProductFacts => f !== undefined && f.sortedPrices.length > 0);
 
-// Calculate category breakdown
-function getCategoryBreakdown(items: ItemData[]) {
-  const categories: Record<string, { items: number; total: number }> = {};
-  
-  items.forEach((item) => {
-    if (!categories[item.category]) {
-      categories[item.category] = { items: 0, total: 0 };
-    }
-    categories[item.category].items++;
-    categories[item.category].total += item.storePrices.carrefour.currentPrice;
-  });
-
-  return Object.keys(categories).map((cat) => ({
-    name: cat,
-    count: categories[cat].items,
-    avgPrice: parseFloat((categories[cat].total / categories[cat].items).toFixed(2)),
-  }));
-}
-
-// Calculate price change distribution
-function getPriceChangeDistribution(items: ItemData[]) {
-  let priceIncreases = 0;
-  let priceDecreases = 0;
-  let stablePrices = 0;
-
-  items.forEach((item) => {
-    const change = item.storePrices.carrefour.changePercent;
-    if (change > 2) priceIncreases++;
-    else if (change < -2) priceDecreases++;
-    else stablePrices++;
-  });
-
-  return { priceIncreases, priceDecreases, stablePrices };
-}
-
-// Calculate store statistics
-function getStoreStats(items: ItemData[]) {
-  let bestStore = supermarkets[0];
-  let worstStore = supermarkets[0];
-  let bestTotal = Infinity;
-  let worstTotal = -Infinity;
-
-  supermarkets.forEach((store) => {
-    const total = items.reduce(
-      (sum, item) => sum + item.storePrices[store.id].currentPrice,
-      0
-    );
-    if (total < bestTotal) {
-      bestTotal = total;
-      bestStore = store;
-    }
-    if (total > worstTotal) {
-      worstTotal = total;
-      worstStore = store;
-    }
-  });
-
-  return {
-    bestStore,
-    worstStore,
-    avgBestPrice: parseFloat((bestTotal / items.length).toFixed(2)),
-    avgWorstPrice: parseFloat((worstTotal / items.length).toFixed(2)),
-  };
-}
-
-// Price Tracker Screen Component
-export default function PriceTrackerScreen() {
-  const { t } = useTranslation();
-  const [priceData, setPriceData] = useState<ItemData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Generate data on mount
-  const generateData = () => {
-    setIsLoading(true);
-    const data = generatePriceData();
-    setPriceData(data);
-    setIsLoading(false);
-  };
-
-  React.useEffect(() => {
-    generateData();
-  }, []);
-
-  // Filtered items
-  const filteredItems = useMemo(() => {
-    let items = priceData;
-    
-    // Filter by category
-    if (filterCategory !== 'all') {
-      items = items.filter((item) => item.category === filterCategory);
-    }
-    
-    // Filter by search
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      items = items.filter(
-        (item) =>
-          item.name.toLowerCase().includes(query) ||
-          item.category.toLowerCase().includes(query)
-      );
-    }
-    
-    return items;
-  }, [priceData, filterCategory, searchQuery]);
-
-  // Calculate statistics
-  const stats = useMemo(() => {
-    if (priceData.length === 0) return null;
-    
-    const distribution = getPriceChangeDistribution(priceData);
-    const storeStats = getStoreStats(priceData);
-    
-    return {
-      totalItems: priceData.length,
-      ...distribution,
-      ...storeStats,
-    };
-  }, [priceData]);
-
-  // Chart data
-  const chartData = useMemo(() => {
-    if (priceData.length === 0) return null;
-    
-    const topItems = getTopItems(priceData, 15);
-    const categoryData = getCategoryBreakdown(priceData);
-    const distribution = getPriceChangeDistribution(priceData);
-    
-    // Price comparison chart data (BarChart)
-    const priceComparisonData = {
-      labels: topItems.map((i) => i.name.substring(0, 6)),
-      datasets: supermarkets.map((store) => ({
-        data: topItems.map((item) => (item as any)[store.id] as number),
-        color: () => store.color,
-      })),
-    };
-
-    // Category bar chart data
-    const categoryDataForChart = {
-      labels: categoryData.map((c) => c.name),
-      datasets: [
-        {
-          data: categoryData.map((c) => c.avgPrice),
-          color: () => '#667eea',
-        },
-        {
-          data: categoryData.map((c) => c.count),
-          color: () => '#f3f4f6',
-        },
-      ],
-    };
-
-    // Pie chart data for price distribution
-    const pieChartData = [
-      { name: '↑', count: distribution.priceIncreases, color: '#ef4444' },
-      { name: '↓', count: distribution.priceDecreases, color: '#10b981' },
-      { name: '→', count: distribution.stablePrices, color: '#6b7280' },
-    ];
-
-    // Store comparison radar data
-    const radarData = supermarkets.map((store) => {
-      const total = priceData.reduce(
-        (sum, item) => sum + item.storePrices[store.id].currentPrice,
-        0
-      );
-      return parseFloat((total / priceData.length).toFixed(2));
-    });
-
-    return {
-      priceComparison: priceComparisonData,
-      category: categoryDataForChart,
-      pie: pieChartData,
-      radar: radarData,
-    };
-  }, [priceData]);
-
-  // Render price table rows
-  const renderPriceTable = () => {
-    if (filteredItems.length === 0) {
-      return (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>{t('priceTracker.noResults')}</Text>
-        </View>
-      );
-    }
-
-    return filteredItems.map((item) => {
-      // Get best store
-      const bestStore = supermarkets.reduce((best, store) =>
-        item.storePrices[store.id].currentPrice <
-        item.storePrices[best.id].currentPrice
-          ? store
-          : best,
-        supermarkets[0]
-      );
-
-      const change = item.storePrices.carrefour.change;
-      const changePercent = Math.abs(item.storePrices.carrefour.changePercent);
-      const changeColor =
-        change > 0 ? '#ef4444' : change < 0 ? '#10b981' : '#6b7280';
-      const changeSymbol = change > 0 ? '▲' : change < 0 ? '▼' : '•';
-
-      return (
-        <View key={item.id} style={styles.priceRow}>
-          <View style={styles.priceCell}>
-            <Text style={styles.priceItemName}>{item.name}</Text>
-            <Text style={styles.priceCategory}>{item.category}</Text>
-          </View>
-          
-          {supermarkets.map((store) => (
-            <View key={store.id} style={styles.priceCell}>
-              <Text style={styles.priceValue}>
-                €{item.storePrices[store.id].currentPrice.toFixed(2)}
-              </Text>
-            </View>
-          ))}
-          
-          <View style={styles.priceCell}>
-            <Text style={[styles.bestStore, { color: bestStore.color }]}>
-              {bestStore.name}
-            </Text>
-          </View>
-          
-          <View style={styles.priceCell}>
-            <Text style={[styles.priceChange, { color: changeColor }]}>
-              {changeSymbol} {changePercent.toFixed(1)}%
-            </Text>
-          </View>
-        </View>
-      );
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#667eea" />
-      </View>
-    );
+const overallStats: OverallStats = (() => {
+  let totalPriceEntries = 0;
+  let priceSum = 0;
+  for (const f of allFacts) {
+    totalPriceEntries += f.storeCount;
+    for (const sp of f.sortedPrices) priceSum += sp.price;
   }
+  return {
+    totalProducts: allFacts.length,
+    totalChains: allStores.length,
+    totalPriceEntries,
+    avgPrice: totalPriceEntries ? priceSum / totalPriceEntries : 0,
+  };
+})();
+
+const chainStats: ChainStat[] = (() => {
+  const wins = new Map<string, number>();
+  const sums = new Map<string, { sum: number; count: number }>();
+  for (const s of allStores) {
+    wins.set(s.id, 0);
+    sums.set(s.id, { sum: 0, count: 0 });
+  }
+  for (const f of allFacts) {
+    if (f.cheapest) wins.set(f.cheapest.store.id, (wins.get(f.cheapest.store.id) ?? 0) + 1);
+    for (const sp of f.sortedPrices) {
+      const e = sums.get(sp.store.id);
+      if (e) {
+        e.sum += sp.price;
+        e.count += 1;
+      }
+    }
+  }
+  return allStores
+    .map((store) => {
+      const e = sums.get(store.id)!;
+      return {
+        store,
+        wins: wins.get(store.id) ?? 0,
+        avgPrice: e.count ? e.sum / e.count : 0,
+        productsStocked: e.count,
+      };
+    })
+    .sort((a, b) => b.wins - a.wins);
+})();
+
+const topDeals: DealRow[] = (() => {
+  return allFacts
+    .filter((f) => f.sortedPrices.length >= 2 && f.cheapest && f.priciest)
+    .map((f) => {
+      const spread = f.priciest!.price - f.cheapest!.price;
+      const spreadPercent = (spread / f.cheapest!.price) * 100;
+      return { facts: f, spread, spreadPercent };
+    })
+    .sort((a, b) => b.spread - a.spread)
+    .slice(0, 50);
+})();
+
+const topCategories = listTopCategories();
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function stripDiacritics(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
+/** Average price of all products in a top-level category, per chain. */
+function averagesForCategory(category: string): ChainStat[] {
+  const inCat = allFacts.filter(
+    (f) => f.enriched?.categoryClean?.startsWith(category + '/')
+  );
+  const sums = new Map<string, { sum: number; count: number; wins: number }>();
+  for (const s of allStores) sums.set(s.id, { sum: 0, count: 0, wins: 0 });
+  for (const f of inCat) {
+    if (f.cheapest) {
+      const e = sums.get(f.cheapest.store.id);
+      if (e) e.wins += 1;
+    }
+    for (const sp of f.sortedPrices) {
+      const e = sums.get(sp.store.id);
+      if (e) {
+        e.sum += sp.price;
+        e.count += 1;
+      }
+    }
+  }
+  return allStores
+    .map((store) => {
+      const e = sums.get(store.id)!;
+      return {
+        store,
+        wins: e.wins,
+        avgPrice: e.count ? e.sum / e.count : 0,
+        productsStocked: e.count,
+      };
+    })
+    .filter((s) => s.productsStocked > 0)
+    .sort((a, b) => a.avgPrice - b.avgPrice);
+}
+
+// ============================================================================
+// Screen
+// ============================================================================
+
+export default function PriceTrackerScreen() {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const storeName = (s: Store) => (lang === 'el' ? s.nameGreek : s.name);
+
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<string | null>(null); // null = All
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Stats relevant to the current category filter (or overall if null).
+  const currentChainStats = useMemo(
+    () => (category ? averagesForCategory(category) : chainStats),
+    [category]
+  );
+
+  // Apply search + category to the full table.
+  const filteredFacts = useMemo(() => {
+    const q = stripDiacritics(search.trim());
+    return allFacts
+      .filter((f) => {
+        if (category && !f.enriched?.categoryClean?.startsWith(category + '/')) {
+          return false;
+        }
+        if (q.length === 0) return true;
+        const hay = stripDiacritics(`${f.product.name} ${f.product.nameGreek}`);
+        return hay.includes(q);
+      })
+      .sort((a, b) => (a.cheapest?.price ?? 0) - (b.cheapest?.price ?? 0));
+  }, [search, category]);
+
+  const filteredDeals = useMemo(() => {
+    if (!category) return topDeals.slice(0, 10);
+    return topDeals
+      .filter((d) =>
+        d.facts.enriched?.categoryClean?.startsWith(category + '/')
+      )
+      .slice(0, 10);
+  }, [category]);
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>🛒 {t('priceTracker.title')}</Text>
-        <Text style={styles.subtitle}>{t('priceTracker.subtitle')}</Text>
-      </View>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollBody}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>📊 {t('priceTracker.title')}</Text>
+          <Text style={styles.subtitle}>{t('priceTracker.subtitle')}</Text>
+        </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Text style={styles.searchLabel}>{t('priceTracker.search')}</Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t('priceTracker.searchPlaceholder')}
-          placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      {/* Filter Buttons */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <FilterButton
-            label={t('priceTracker.all')}
-            isActive={filterCategory === 'all'}
-            onPress={() => setFilterCategory('all')}
-          />
-          {Array.from(new Set(priceData.map((i) => i.category))).map(
-            (category) => (
-              <FilterButton
-                key={category}
-                label={category}
-                isActive={filterCategory === category}
-                onPress={() => setFilterCategory(category)}
-              />
-            )
-          )}
-        </ScrollView>
-      </View>
-
-      {/* Statistics Cards */}
-      {stats && (
+        {/* Overview stats */}
         <View style={styles.statsGrid}>
           <StatCard
-            label={t('priceTracker.totalItems')}
-            value={stats.totalItems.toString()}
+            label={t('priceTracker.totalProducts')}
+            value={overallStats.totalProducts.toLocaleString()}
           />
           <StatCard
-            label={t('priceTracker.priceIncreases')}
-            value={stats.priceIncreases.toString()}
-            highlight
-            color="#ef4444"
+            label={t('priceTracker.totalChains')}
+            value={overallStats.totalChains.toString()}
           />
           <StatCard
-            label={t('priceTracker.priceDecreases')}
-            value={stats.priceDecreases.toString()}
-            highlight
-            color="#10b981"
+            label={t('priceTracker.totalPrices')}
+            value={overallStats.totalPriceEntries.toLocaleString()}
           />
           <StatCard
-            label={t('priceTracker.stablePrices')}
-            value={stats.stablePrices.toString()}
-          />
-          <StatCard
-            label={t('priceTracker.bestStore')}
-            value={stats.bestStore.name}
-            highlight
-            color={stats.bestStore.color}
-            subValue={`Avg: €${stats.avgBestPrice}`}
-          />
-          <StatCard
-            label={t('priceTracker.worstStore')}
-            value={stats.worstStore.name}
-            highlight
-            color={stats.worstStore.color}
-            subValue={`Avg: €${stats.avgWorstPrice}`}
+            label={t('priceTracker.avgPrice')}
+            value={`€${overallStats.avgPrice.toFixed(2)}`}
           />
         </View>
-      )}
 
-      {/* Charts */}
-      {chartData && (
-        <View style={styles.chartsContainer}>
-          {/* Price Comparison Bar Chart */}
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>
-              {t('priceTracker.top15Comparison')}
-            </Text>
-            <BarChart
-              style={styles.chart}
-              data={chartData.priceComparison}
-              width={Dimensions.get('window').width - 32}
-              height={220}
-              fromZero={true}
-              chartConfig={{
-                backgroundGradientFrom: '#f8f9fa',
-                backgroundGradientTo: '#f8f9fa',
-                color: (opacity = 1) => '#667eea',
-                labelColor: (opacity = 1) => '#666',
-                yAxisLabel: '',
-                yAxisSuffix: '',
-              }}
+        {/* Category pills */}
+        <View style={styles.catPillContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.catPillRow}
+          >
+            <FilterPill
+              label={t('priceTracker.all')}
+              active={category === null}
+              onPress={() => setCategory(null)}
             />
-          </View>
+            {topCategories.map((c) => (
+              <FilterPill
+                key={c.name}
+                label={`${c.name} (${c.count})`}
+                active={category === c.name}
+                onPress={() => setCategory(c.name)}
+              />
+            ))}
+          </ScrollView>
+        </View>
 
-          {/* Category Breakdown */}
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>
-              {t('priceTracker.categoryBreakdown')}
-            </Text>
-            <BarChart
-              style={styles.chart}
-              data={chartData.category}
-              width={Dimensions.get('window').width - 32}
-              height={220}
-              fromZero={true}
-              chartConfig={{
-                backgroundGradientFrom: '#f8f9fa',
-                backgroundGradientTo: '#f8f9fa',
-                color: () => '#667eea',
-                labelColor: (opacity = 1) => '#666',
-                yAxisLabel: '',
-                yAxisSuffix: '',
-              }}
-            />
-          </View>
-
-          {/* Price Change Distribution */}
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>
-              {t('priceTracker.priceDistribution')}
-            </Text>
-            <PieChart
-              style={styles.chart}
-              data={chartData.pie}
-              width={Dimensions.get('window').width - 32}
-              height={220}
-              chartConfig={{
-                color: () => '#667eea',
-                backgroundColor: 'transparent',
-                paddingLeft: '0',
-              }}
-              accessor="count"
-            />
+        {/* Chain leaderboard */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            🏆 {category
+              ? `${t('priceTracker.chainAvgInCategory')} — ${category}`
+              : t('priceTracker.chainLeaderboard')}
+          </Text>
+          <Text style={styles.sectionHint}>
+            {category
+              ? t('priceTracker.chainAvgHint')
+              : t('priceTracker.chainLeaderboardHint')}
+          </Text>
+          <View style={styles.chainList}>
+            {currentChainStats.map((cs, i) => {
+              // When in category view, sort by avg price (lower is better).
+              // When in overview, sort by wins.
+              const metric = category ? cs.avgPrice : cs.wins;
+              const maxMetric = category
+                ? Math.max(...currentChainStats.map((x) => x.avgPrice), 0.01)
+                : Math.max(...currentChainStats.map((x) => x.wins), 1);
+              // For avg-price view, invert so "lower is better" shows as longer bar.
+              const widthPct = category
+                ? Math.max(8, 100 - (cs.avgPrice / maxMetric) * 80)
+                : (cs.wins / maxMetric) * 100;
+              return (
+                <View key={cs.store.id} style={styles.chainRow}>
+                  <View style={styles.chainLabelCol}>
+                    <Text style={styles.chainRank}>
+                      {i === 0 ? '🏆 ' : `${i + 1}. `}
+                      {storeName(cs.store)}
+                    </Text>
+                    <Text style={styles.chainMeta}>
+                      {category
+                        ? t('priceTracker.avgIn', {
+                            count: cs.productsStocked,
+                          })
+                        : t('priceTracker.winsIn', {
+                            wins: cs.wins,
+                            stocked: cs.productsStocked,
+                          })}
+                    </Text>
+                  </View>
+                  <View style={styles.chainBarTrack}>
+                    <View
+                      style={[
+                        styles.chainBarFill,
+                        {
+                          width: `${widthPct}%`,
+                          backgroundColor: i === 0 ? '#4caf50' : '#90caf9',
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.chainMetricValue}>
+                    {category ? `€${cs.avgPrice.toFixed(2)}` : cs.wins}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         </View>
-      )}
 
-      {/* Price Table */}
-      <View style={styles.tableContainer}>
-        <Text style={styles.tableTitle}>
-          {t('priceTracker.fullPriceTable')}
-        </Text>
-        <View style={styles.tableHeader}>
-          <Text style={styles.headerCell}>{t('priceTracker.item')}</Text>
-          <Text style={styles.headerCell}>{t('priceTracker.category')}</Text>
-          {supermarkets.map((store) => (
-            <Text key={store.id} style={styles.headerCell}>
-              {store.name.substring(0, 8)}
+        {/* Top deals — biggest price spread */}
+        {filteredDeals.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              💰 {t('priceTracker.topDeals')}
             </Text>
-          ))}
-          <Text style={styles.headerCell}>{t('priceTracker.bestStore')}</Text>
-          <Text style={styles.headerCell}>{t('priceTracker.change')}</Text>
+            <Text style={styles.sectionHint}>
+              {t('priceTracker.topDealsHint')}
+            </Text>
+            {filteredDeals.map((d) => {
+              const p = d.facts;
+              const name = lang === 'el' ? p.product.nameGreek : p.product.name;
+              return (
+                <View key={p.product.id} style={styles.dealRow}>
+                  <View style={styles.dealTextCol}>
+                    <Text style={styles.dealName} numberOfLines={2}>
+                      {name}
+                    </Text>
+                    <Text style={styles.dealSubtext}>
+                      €{p.cheapest!.price.toFixed(2)} @ {storeName(p.cheapest!.store)}
+                      {'  ·  '}
+                      €{p.priciest!.price.toFixed(2)} @ {storeName(p.priciest!.store)}
+                    </Text>
+                  </View>
+                  <View style={styles.dealSavingsCol}>
+                    <Text style={styles.dealSavings}>
+                      −€{d.spread.toFixed(2)}
+                    </Text>
+                    <Text style={styles.dealSavingsPct}>
+                      −{d.spreadPercent.toFixed(0)}%
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Search + full table */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            🔍 {t('priceTracker.fullPriceTable')}
+          </Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t('priceTracker.searchPlaceholder')}
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+            autoCorrect={false}
+          />
+          <Text style={styles.tableSummary}>
+            {t('priceTracker.showingResults', { count: filteredFacts.length })}
+          </Text>
+          {filteredFacts.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>{t('priceTracker.noResults')}</Text>
+            </View>
+          ) : (
+            filteredFacts.slice(0, 100).map((f) => {
+              const name = lang === 'el' ? f.product.nameGreek : f.product.name;
+              const isExpanded = expandedId === f.product.id;
+              const spread = f.priciest && f.cheapest ? f.priciest.price - f.cheapest.price : 0;
+              return (
+                <View key={f.product.id} style={styles.productCard}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setExpandedId((prev) => (prev === f.product.id ? null : f.product.id))
+                    }
+                    style={styles.productRow}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.productChevron}>{isExpanded ? '▾' : '▸'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.productName} numberOfLines={2}>
+                        {name}
+                      </Text>
+                      <Text style={styles.productSubtext}>
+                        €{f.cheapest!.price.toFixed(2)} @ {storeName(f.cheapest!.store)}
+                        {'  ·  '}
+                        {f.storeCount} {t('priceTracker.stores')}
+                        {spread > 0 && `  ·  ${t('priceTracker.spread')} €${spread.toFixed(2)}`}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                  {isExpanded && (
+                    <View style={styles.productPrices}>
+                      {f.sortedPrices.map((sp, i) => {
+                        const delta = sp.price - f.cheapest!.price;
+                        return (
+                          <View
+                            key={sp.store.id}
+                            style={[
+                              styles.priceLine,
+                              i === 0 && styles.priceLineBest,
+                            ]}
+                          >
+                            <Text style={styles.priceLineStore}>
+                              {i === 0 ? '🏆 ' : ''}
+                              {storeName(sp.store)}
+                            </Text>
+                            <View style={styles.priceLineRight}>
+                              <Text style={styles.priceLineAmount}>
+                                €{sp.price.toFixed(2)}
+                              </Text>
+                              {delta > 0 && (
+                                <Text style={styles.priceLineDelta}>
+                                  +€{delta.toFixed(2)}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
+          {filteredFacts.length > 100 && (
+            <Text style={styles.tableMore}>
+              + {filteredFacts.length - 100} {t('priceTracker.more')}
+            </Text>
+          )}
         </View>
-        {renderPriceTable()}
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// Helper Components
-function FilterButton({
+// ============================================================================
+// Sub-components
+// ============================================================================
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.statCard}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+    </View>
+  );
+}
+
+function FilterPill({
   label,
-  isActive,
+  active,
   onPress,
 }: {
   label: string;
-  isActive: boolean;
+  active: boolean;
   onPress: () => void;
 }) {
   return (
     <TouchableOpacity
-      style={[styles.filterButton, isActive && styles.filterButtonActive]}
+      style={[styles.catPill, active && styles.catPillActive]}
       onPress={onPress}
     >
-      <Text
-        style={[styles.filterButtonText, isActive && styles.filterButtonTextActive]}
-      >
+      <Text style={[styles.catPillText, active && styles.catPillTextActive]}>
         {label}
       </Text>
     </TouchableOpacity>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  highlight = false,
-  color = '#667eea',
-  subValue,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-  color?: string;
-  subValue?: string;
-}) {
-  return (
-    <View style={[styles.statCard, highlight && styles.statCardHighlight]}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, highlight && { color }]}>{value}</Text>
-      {subValue && <Text style={styles.statSubValue}>{subValue}</Text>}
-    </View>
-  );
-}
-
+// ============================================================================
 // Styles
+// ============================================================================
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  scrollBody: {
+    paddingBottom: 24,
+  },
   header: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#1976d2',
     padding: 20,
-    paddingTop: 40,
+    paddingTop: 32,
     alignItems: 'center',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 8,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  searchContainer: {
-    padding: 16,
-  },
-  searchLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    color: 'rgba(255,255,255,0.85)',
   },
-  searchInput: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  filterContainer: {
-    padding: 12,
-  },
-  filterButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#667eea',
-    marginRight: 8,
-  },
-  filterButtonActive: {
-    backgroundColor: '#667eea',
-  },
-  filterButtonText: {
-    fontSize: 13,
-    color: '#667eea',
-    fontWeight: '600',
-  },
-  filterButtonTextActive: {
-    color: '#fff',
-  },
+  // Stats grid
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     padding: 12,
-    gap: 12,
+    gap: 10,
     justifyContent: 'space-between',
   },
   statCard: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+    borderRadius: 10,
+    padding: 12,
     flexBasis: '48%',
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
-  statCardHighlight: {
-    backgroundColor: 'rgba(102, 126, 234, 0.05)',
-    borderLeftWidth: 3,
-    borderLeftColor: '#667eea',
-  },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#212121',
   },
-  statSubValue: {
-    fontSize: 11,
-    color: '#999',
-    marginTop: 4,
-  },
-  chartsContainer: {
-    padding: 12,
-    gap: 16,
-  },
-  chartCard: {
+  // Category pills
+  catPillContainer: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  chartTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  chart: {
-    marginVertical: 8,
-  },
-  tableContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  tableTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    paddingVertical: 10,
+    borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderColor: '#e0e0e0',
   },
-  headerCell: {
-    flex: 1,
-    fontSize: 11,
+  catPillRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  catPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#eceff1',
+    marginRight: 6,
+  },
+  catPillActive: {
+    backgroundColor: '#1976d2',
+  },
+  catPillText: {
+    fontSize: 12,
+    color: '#37474f',
     fontWeight: '600',
-    color: '#666',
-    textAlign: 'center',
   },
-  priceRow: {
+  catPillTextActive: {
+    color: '#fff',
+  },
+  // Sections
+  section: {
+    backgroundColor: '#fff',
+    margin: 12,
+    marginBottom: 0,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#212121',
+    marginBottom: 4,
+  },
+  sectionHint: {
+    fontSize: 11,
+    color: '#777',
+    marginBottom: 10,
+  },
+  // Chain leaderboard
+  chainList: {
+    gap: 8,
+  },
+  chainRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
+    alignItems: 'center',
+    gap: 8,
+  },
+  chainLabelCol: {
+    flexBasis: 130,
+  },
+  chainRank: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#212121',
+  },
+  chainMeta: {
+    fontSize: 10,
+    color: '#777',
+  },
+  chainBarTrack: {
+    flex: 1,
+    height: 14,
+    backgroundColor: '#eceff1',
+    borderRadius: 7,
+    overflow: 'hidden',
+  },
+  chainBarFill: {
+    height: '100%',
+    borderRadius: 7,
+  },
+  chainMetricValue: {
+    width: 56,
+    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#212121',
+  },
+  // Deal rows
+  dealRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f5f5f5',
   },
-  priceCell: {
+  dealTextCol: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginRight: 8,
   },
-  priceItemName: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#333',
-  },
-  priceCategory: {
-    fontSize: 10,
-    color: '#999',
-  },
-  priceValue: {
+  dealName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: '#212121',
   },
-  bestStore: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  priceChange: {
+  dealSubtext: {
     fontSize: 11,
-    fontWeight: '600',
+    color: '#666',
+    marginTop: 2,
+  },
+  dealSavingsCol: {
+    alignItems: 'flex-end',
+  },
+  dealSavings: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2e7d32',
+  },
+  dealSavingsPct: {
+    fontSize: 11,
+    color: '#388e3c',
+  },
+  // Search + table
+  searchInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: '#212121',
+    marginBottom: 8,
+  },
+  tableSummary: {
+    fontSize: 11,
+    color: '#777',
+    marginBottom: 8,
+  },
+  productCard: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
+  },
+  productRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+  },
+  productChevron: {
+    width: 16,
+    fontSize: 12,
+    color: '#90a4ae',
+    marginTop: 1,
+  },
+  productName: {
+    fontSize: 13,
+    color: '#212121',
+  },
+  productSubtext: {
+    fontSize: 11,
+    color: '#558b2f',
+    marginTop: 2,
+  },
+  productPrices: {
+    paddingLeft: 16,
+    paddingBottom: 10,
+    paddingRight: 4,
+  },
+  priceLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginBottom: 3,
+    backgroundColor: '#fafafa',
+  },
+  priceLineBest: {
+    backgroundColor: '#e8f5e9',
+  },
+  priceLineStore: {
+    fontSize: 12,
+    color: '#212121',
+    flex: 1,
+  },
+  priceLineRight: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  priceLineAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#212121',
+  },
+  priceLineDelta: {
+    fontSize: 11,
+    color: '#ef6c00',
+    marginLeft: 6,
+  },
+  tableMore: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#777',
+    fontStyle: 'italic',
+    marginTop: 8,
   },
   emptyState: {
-    padding: 40,
+    paddingVertical: 24,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 14,
     color: '#999',
+    fontSize: 13,
   },
 });
