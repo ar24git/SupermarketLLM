@@ -596,8 +596,10 @@ function TypeListModal({
   language: string;
   t: (key: string, opts?: any) => string;
 }) {
-  // Pre-fill with a bullet so the user sees the list format immediately.
-  const [text, setText] = useState('- ');
+  // List of shopping-list lines. Each is its own input box; pressing Enter
+  // appends a new empty row, Backspace on an empty row deletes it.
+  const [items, setItems] = useState<string[]>(['']);
+  const inputRefs = React.useRef<Array<TextInput | null>>([]);
   const [results, setResults] = useState<LineResult[] | null>(null);
   // For ambiguous AND no-match rows: result-index -> chosen productId | null (skip).
   const [picks, setPicks] = useState<Map<number, string | null>>(new Map());
@@ -607,24 +609,58 @@ function TypeListModal({
   // Reset on open.
   useEffect(() => {
     if (visible) {
-      setText('- ');
+      setItems(['']);
       setResults(null);
       setPicks(new Map());
       setManualSearches(new Map());
     }
   }, [visible]);
 
+  const hasAnyItem = items.some((it) => it.trim().length > 0);
+
   const runMatch = () => {
-    const lines = text.split(/\r?\n/);
-    const parsed = lines.map(parseListLine).filter((l): l is ParsedListLine => l !== null);
+    const parsed = items
+      .map(parseListLine)
+      .filter((l): l is ParsedListLine => l !== null);
     const r = parsed.map(classifyLine);
     setResults(r);
-    // Pre-select the top candidate for each ambiguous line.
     const initialPicks = new Map<number, string | null>();
     r.forEach((res, i) => {
       if (res.kind === 'ambiguous') initialPicks.set(i, res.candidates[0].id);
     });
     setPicks(initialPicks);
+  };
+
+  // --- per-row list editing helpers ----------------------------------------
+
+  const updateItem = (idx: number, value: string) => {
+    setItems((prev) => {
+      const next = [...prev];
+      next[idx] = value;
+      return next;
+    });
+  };
+
+  const addRowAfter = (idx: number) => {
+    setItems((prev) => {
+      const next = [...prev];
+      next.splice(idx + 1, 0, '');
+      return next;
+    });
+    // Focus the new input on the next tick (after React re-renders).
+    setTimeout(() => inputRefs.current[idx + 1]?.focus(), 0);
+  };
+
+  const removeRow = (idx: number) => {
+    if (items.length === 1) {
+      // Keep at least one (cleared) row.
+      setItems(['']);
+      setTimeout(() => inputRefs.current[0]?.focus(), 0);
+      return;
+    }
+    setItems((prev) => prev.filter((_, i) => i !== idx));
+    const focusIdx = Math.max(0, idx - 1);
+    setTimeout(() => inputRefs.current[focusIdx]?.focus(), 0);
   };
 
   const confident = useMemo(
@@ -730,40 +766,68 @@ function TypeListModal({
             </TouchableOpacity>
           </View>
 
-          {/* PHASE 1: edit list */}
+          {/* PHASE 1: edit list — one input box per item */}
           {results === null && (
             <View style={{ flex: 1 }}>
-              <ScrollView contentContainerStyle={styles.modalBody}>
-                <TextInput
-                  multiline
-                  value={text}
-                  onChangeText={(next) => {
-                    // Auto-bullet: when the user hits Enter, append "- " to
-                    // the new line so the list keeps its bulleted shape.
-                    // We detect the case where exactly one character (a \n)
-                    // was inserted at the end of the previous text.
-                    if (
-                      next.length === text.length + 1 &&
-                      next.endsWith('\n') &&
-                      next.startsWith(text)
-                    ) {
-                      setText(next + '- ');
-                    } else {
-                      setText(next);
-                    }
-                  }}
-                  placeholder={t('basketTypeListPlaceholder')}
-                  placeholderTextColor="#999"
-                  style={styles.typeListInput}
-                />
+              <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
+                {items.map((value, idx) => (
+                  <View key={idx} style={styles.itemRow}>
+                    <View style={styles.itemCheckbox} />
+                    <TextInput
+                      ref={(r) => {
+                        inputRefs.current[idx] = r;
+                      }}
+                      value={value}
+                      onChangeText={(v) => updateItem(idx, v)}
+                      onSubmitEditing={() => addRowAfter(idx)}
+                      onKeyPress={(e) => {
+                        // Backspace on an empty row removes that row.
+                        if (
+                          (e.nativeEvent as any).key === 'Backspace' &&
+                          value === ''
+                        ) {
+                          removeRow(idx);
+                        }
+                      }}
+                      placeholder={
+                        idx === 0
+                          ? t('basketTypeListPlaceholder')
+                          : ''
+                      }
+                      placeholderTextColor="#999"
+                      style={styles.itemInput}
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                      autoCorrect={false}
+                      autoCapitalize="none"
+                      autoFocus={idx === 0 && items.length === 1}
+                    />
+                    {items.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => removeRow(idx)}
+                        style={styles.itemRemove}
+                      >
+                        <Text style={styles.itemRemoveText}>✕</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+                <TouchableOpacity
+                  onPress={() => addRowAfter(items.length - 1)}
+                  style={styles.itemAddRow}
+                >
+                  <Text style={styles.itemAddRowText}>
+                    + {t('basketTypeListAddRow')}
+                  </Text>
+                </TouchableOpacity>
               </ScrollView>
               <View style={styles.createBasketFooter}>
                 <TouchableOpacity
                   onPress={runMatch}
-                  disabled={!text.trim()}
+                  disabled={!hasAnyItem}
                   style={[
                     styles.createBasketCta,
-                    !text.trim() && styles.createBasketCtaDisabled,
+                    !hasAnyItem && styles.createBasketCtaDisabled,
                   ]}
                 >
                   <Text style={styles.createBasketCtaText}>
@@ -2098,6 +2162,54 @@ const styles = StyleSheet.create({
     color: '#212121',
     backgroundColor: '#fafafa',
     textAlignVertical: 'top',
+  },
+  // Per-row item list (Type-your-list phase 1)
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  itemCheckbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#90a4ae',
+    backgroundColor: '#fff',
+    marginRight: 10,
+  },
+  itemInput: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    fontSize: 14,
+    color: '#212121',
+  },
+  itemRemove: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  itemRemoveText: {
+    color: '#90a4ae',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  itemAddRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    alignItems: 'flex-start',
+  },
+  itemAddRowText: {
+    fontSize: 13,
+    color: '#1976d2',
+    fontWeight: '600',
   },
   typeListSummary: {
     backgroundColor: '#e8f5e9',
