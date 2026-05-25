@@ -1837,8 +1837,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '85%',
-    paddingBottom: 20,
+    // Use a fixed height so inner `flex: 1` containers (scroll body + sticky
+    // footer) have room to flex. With maxHeight the card collapsed to its
+    // natural content size, hiding the inputs / footer on Android.
+    height: '85%',
+    // Don't apply bottom padding here — it would shrink the inner content.
+    // The footer adds its own safe-area aware padding.
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2117,6 +2121,9 @@ const styles = StyleSheet.create({
   },
   createBasketFooter: {
     padding: 12,
+    // Extra bottom padding so the CTA button isn't under Android's gesture
+    // navigation indicator. iOS home-indicator is similar height.
+    paddingBottom: Platform.OS === 'android' ? 24 : 28,
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },

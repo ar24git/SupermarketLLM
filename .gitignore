@@ -46,6 +46,9 @@ scripts/crawler/data/
 scripts/enrich/node_modules/
 scripts/enrich/data/
 
+# Historical price snapshots — local only, rebuildable from crawler
+data/snapshots/
+
 # generated native folders
 /ios
 /android
