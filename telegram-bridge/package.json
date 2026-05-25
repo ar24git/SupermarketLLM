@@ -1,0 +1,15 @@
+{
+  "name": "supermarketllm-telegram-bridge",
+  "version": "0.1.0",
+  "description": "Telegram bridge to connect Telegram bot to local Ollama LLM for SupermarketLLM",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "telegraf": "^4.0.0",
+    "node-fetch": "^2.6.6",
+    "dotenv": "^16.0.0"
+  }
+}

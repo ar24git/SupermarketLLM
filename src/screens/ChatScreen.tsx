@@ -15,7 +15,9 @@ import {
   Modal,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useNavigation } from '@react-navigation/native';
 import { ollamaService } from '../services/ollama';
+import { recipeEngine } from '../services/recipeEngine';
 import { Product, QueryResult } from '../types';
 import {
   compareBasketByChain,
@@ -594,7 +596,8 @@ function TypeListModal({
   language: string;
   t: (key: string, opts?: any) => string;
 }) {
-  const [text, setText] = useState('');
+  // Pre-fill with a bullet so the user sees the list format immediately.
+  const [text, setText] = useState('- ');
   const [results, setResults] = useState<LineResult[] | null>(null);
   // For ambiguous AND no-match rows: result-index -> chosen productId | null (skip).
   const [picks, setPicks] = useState<Map<number, string | null>>(new Map());
@@ -604,7 +607,7 @@ function TypeListModal({
   // Reset on open.
   useEffect(() => {
     if (visible) {
-      setText('');
+      setText('- ');
       setResults(null);
       setPicks(new Map());
       setManualSearches(new Map());
@@ -734,7 +737,21 @@ function TypeListModal({
                 <TextInput
                   multiline
                   value={text}
-                  onChangeText={setText}
+                  onChangeText={(next) => {
+                    // Auto-bullet: when the user hits Enter, append "- " to
+                    // the new line so the list keeps its bulleted shape.
+                    // We detect the case where exactly one character (a \n)
+                    // was inserted at the end of the previous text.
+                    if (
+                      next.length === text.length + 1 &&
+                      next.endsWith('\n') &&
+                      next.startsWith(text)
+                    ) {
+                      setText(next + '- ');
+                    } else {
+                      setText(next);
+                    }
+                  }}
                   placeholder={t('basketTypeListPlaceholder')}
                   placeholderTextColor="#999"
                   style={styles.typeListInput}
@@ -1001,6 +1018,7 @@ function TypeListModal({
 
 export default function ChatScreen() {
   const { t, i18n } = useTranslation();
+  const navigation = useNavigation();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -1155,6 +1173,12 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>{t('chatTitle')}</Text>
         <View style={styles.headerRight}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('PriceTracker')}
+            style={styles.priceTrackerButton}
+          >
+            <Text style={styles.priceTrackerButtonText}>📊</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setBasketOpen(true)}
             style={[
@@ -1613,6 +1637,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#2e7d32',
+  },
+  priceTrackerButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#fff3e0',
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  priceTrackerButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e65100',
   },
   // Assistant message: rich content (headings, paragraphs, checkbox bullets)
   contentHeading: {

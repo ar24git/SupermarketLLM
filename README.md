@@ -8,6 +8,10 @@ A multilingual (English/Greek) mobile app that uses a local LLM via Ollama to he
 - 🌐 **Multilingual** - Supports English and Greek (Ελληνικά)
 - 🏪 **Greek Supermarkets** - Sklavenitis, Masoutis, Lidl, My Market, AB, Koutoudis
 - 💬 **Conversational** - Ask questions like "What's the cheapest milk?"
+- 📊 **Price Tracker** - Visual price comparison across 4 major supermarkets (Carrefour, Makro, Bazaar, Green Market)
+- 📈 **Interactive Charts** - Price trends, distribution, and store comparisons
+- 🔍 **Search & Filter** - Find items by category or search terms
+
 
 ## Prerequisites
 
@@ -48,6 +52,17 @@ npx expo start --android
 2. User asks a price question in English or Greek
 3. The LLM (llama3.2) uses the built-in price database to answer
 4. Responses are localized to the user's language
+
+## Price Tracker
+
+The app includes a comprehensive price tracker that allows you to:
+
+- Compare prices across 4 major supermarkets (Carrefour, Makro, Bazaar, Green Market)
+- View price changes and trends
+- Filter by category or search for specific items
+- See price distributions and store comparisons
+
+Access the Price Tracker from the Chat screen by tapping the 📊 icon in the header.
 
 ## Tech Stack
 
