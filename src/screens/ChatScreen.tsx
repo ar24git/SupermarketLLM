@@ -1087,7 +1087,6 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOllamaConnected, setIsOllamaConnected] = useState<boolean | null>(null);
-  const [connectionChecked, setConnectionChecked] = useState(false);
   // productId -> quantity (>=1). Single source of truth for the basket.
   const [basket, setBasket] = useState<Map<string, number>>(new Map());
   const [basketOpen, setBasketOpen] = useState(false);
@@ -1150,7 +1149,14 @@ export default function ChatScreen() {
   const checkConnection = async () => {
     const connected = await ollamaService.checkConnection();
     setIsOllamaConnected(connected);
-    setConnectionChecked(true);
+    // Only surface a popup when there's a problem — successful connection
+    // doesn't need a visible status indicator.
+    if (!connected) {
+      Alert.alert(t('ollamaDisconnected'), t('ollamaHint'), [
+        { text: t('retry'), onPress: checkConnection },
+        { text: 'OK', style: 'cancel' },
+      ]);
+    }
   };
 
   const handleSend = async () => {
@@ -1221,13 +1227,6 @@ export default function ChatScreen() {
     setInput(question);
   };
 
-  const showConnectionHelp = () => {
-    Alert.alert(
-      t('ollamaDisconnected'),
-      t('ollamaHint'),
-      [{ text: 'OK' }]
-    );
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1261,26 +1260,6 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Connection Status */}
-      <TouchableOpacity 
-        onPress={showConnectionHelp}
-        style={[
-          styles.statusBar,
-          !connectionChecked ? styles.statusChecking :
-          isOllamaConnected ? styles.statusConnected : styles.statusDisconnected
-        ]}
-      >
-        <View style={[
-          styles.statusDot,
-          !connectionChecked ? styles.dotChecking :
-          isOllamaConnected ? styles.dotConnected : styles.dotDisconnected
-        ]} />
-        <Text style={styles.statusText}>
-          {!connectionChecked ? 'Checking...' :
-           isOllamaConnected ? t('ollamaConnected') : t('ollamaDisconnected')}
-        </Text>
-      </TouchableOpacity>
 
       {/* Messages */}
       <KeyboardAvoidingView 
@@ -2333,40 +2312,6 @@ const styles = StyleSheet.create({
     color: '#1976d2',
     fontSize: 13,
     fontWeight: '600',
-  },
-  statusBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  statusChecking: {
-    backgroundColor: '#fff3e0',
-  },
-  statusConnected: {
-    backgroundColor: '#e8f5e9',
-  },
-  statusDisconnected: {
-    backgroundColor: '#ffebee',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  dotChecking: {
-    backgroundColor: '#ff9800',
-  },
-  dotConnected: {
-    backgroundColor: '#4caf50',
-  },
-  dotDisconnected: {
-    backgroundColor: '#f44336',
-  },
-  statusText: {
-    fontSize: 12,
-    color: '#666',
   },
   keyboardView: {
     flex: 1,

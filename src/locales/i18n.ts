@@ -17,6 +17,7 @@ const resources = {
       ollamaConnected: 'Ollama connected',
       ollamaDisconnected: 'Ollama not connected',
       ollamaHint: 'Make sure Ollama is running locally on port 11434',
+      retry: 'Retry',
       
       // Sample Questions
       sampleQuestions: 'Try asking:',
@@ -120,6 +121,7 @@ const resources = {
       ollamaConnected: 'Ollama συνδεδεμένο',
       ollamaDisconnected: 'Ollama δεν είναι συνδεδεμένο',
       ollamaHint: 'Βεβαιωθείτε ότι το Ollama τρέχει τοπικά στη θύρα 11434',
+      retry: 'Επανάληψη',
       
       // Sample Questions
       sampleQuestions: 'Δοκίμασε να ρωτήσεις:',
