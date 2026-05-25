@@ -144,17 +144,29 @@ function passesTypeNameRequirement(productType: string, nameHaystack: string): b
 // 'me' / 'με' is the worst offender — it's the Greek word for "with" and
 // appears in literally thousands of product names ("X ΜΕ Y").
 const STOPWORDS = new Set<string>([
-  // English
+  // English question/intent words
   'me', 'my', 'the', 'a', 'an', 'is', 'are', 'do', 'show', 'tell', 'give',
   'want', 'need', 'find', 'list', 'cheap', 'cheaper', 'cheapest', 'price',
   'prices', 'all', 'any', 'some', 'please', 'thanks', 'thank', 'you', 'your',
-  'what', 'where', 'when', 'how', 'which', 'who', 'why',
-  // Greek (diacritic-stripped)
-  'με', 'και', 'σε', 'ο', 'η', 'το', 'οι', 'οι', 'τα', 'του', 'της', 'των',
-  'στο', 'στη', 'στην', 'στον', 'στους', 'στις',
+  'what', 'where', 'when', 'how', 'which', 'who', 'why', 'for', 'with', 'and',
+  'or', 'of', 'to', 'in', 'on', 'at', 'as',
+  // English size / quality / state adjectives — usually meaningless for matching
+  'large', 'big', 'small', 'medium', 'mini', 'mega', 'jumbo', 'thick', 'thin',
+  'fresh', 'dried', 'frozen', 'raw', 'cooked', 'whole', 'sliced', 'chopped',
+  'minced', 'grated', 'ground', 'crushed', 'lean', 'fat', 'low', 'extra',
+  'ripe', 'organic', 'classic', 'plain', 'optional', 'garnish', 'recommended',
+  'pinch', 'dash', 'about', 'approximately', 'preferred', 'mix',
+  // English quantity units (already stripped in preprocessing but defense in depth)
+  'lb', 'oz', 'kg', 'ml', 'tsp', 'tbsp', 'cup', 'cups', 'stick', 'sticks',
+  'can', 'cans', 'pack', 'piece', 'pieces',
+  // Greek question/intent (diacritic-stripped)
+  'με', 'και', 'σε', 'ο', 'η', 'το', 'οι', 'τα', 'του', 'της', 'των',
+  'στο', 'στη', 'στην', 'στον', 'στους', 'στις', 'για', 'απο', 'ως',
   'φθηνο', 'φθηνος', 'φθηνα', 'τιμη', 'τιμες',
   'δειξε', 'δειχ', 'θελω', 'εχω', 'εχει', 'ποιο', 'ποιος', 'ποια',
   'ολα', 'ολους', 'ολες',
+  // Greek size / state adjectives
+  'μεγαλο', 'μικρο', 'μετριο', 'πληρες', 'ελαφρυ', 'φρεσκο', 'παγωμενο',
 ]);
 
 function tokenize(text: string): string[] {
@@ -280,32 +292,76 @@ for (const facts of factsByProductId.values()) {
 // ============================================================================
 
 const PHRASE_TO_TYPE: Record<string, string> = {
-  // English
-  milk: 'milk', cheese: 'cheese', yogurt: 'yogurt', yoghurt: 'yogurt',
+  // English — dairy
+  milk: 'milk', cheese: 'cheese', cheeses: 'cheese',
+  feta: 'cheese', parmesan: 'cheese', kefalotyri: 'cheese', pecorino: 'cheese',
+  mozzarella: 'cheese', kasseri: 'cheese', graviera: 'cheese',
+  yogurt: 'yogurt', yoghurt: 'yogurt',
   butter: 'butter', cream: 'cream', egg: 'egg', eggs: 'egg',
-  chicken: 'chicken', pork: 'pork', beef: 'beef', lamb: 'lamb',
-  turkey: 'turkey', fish: 'fish', shrimp: 'shrimp',
-  bread: 'bread', pasta: 'pasta', rice: 'rice', flour: 'flour',
-  oil: 'oil', vinegar: 'vinegar', sugar: 'sugar', salt: 'salt', honey: 'honey',
+  // English — meat / fish
+  chicken: 'chicken', pork: 'pork', beef: 'beef', veal: 'beef', lamb: 'lamb',
+  turkey: 'turkey', fish: 'fish', shrimp: 'shrimp', prawn: 'shrimp',
+  // English — staples
+  bread: 'bread', pasta: 'pasta', spaghetti: 'pasta', penne: 'pasta',
+  bucatini: 'pasta', macaroni: 'pasta', noodles: 'pasta',
+  rice: 'rice', flour: 'flour',
+  oil: 'oil', olive: 'oil',
+  vinegar: 'vinegar', sugar: 'sugar', salt: 'salt', honey: 'honey',
+  // English — drinks
   water: 'water', juice: 'juice', soda: 'soda', coffee: 'coffee', tea: 'tea',
   beer: 'beer', wine: 'wine',
+  // English — sweets / snacks
   chocolate: 'chocolate', biscuit: 'biscuit', biscuits: 'biscuit',
   cookie: 'biscuit', cookies: 'biscuit', snack: 'snack', snacks: 'snack',
   cereal: 'cereal', cereals: 'cereal',
+  // English — household
   soap: 'soap', detergent: 'detergent', shampoo: 'shampoo',
+  // English — vegetables / fruit / pantry
+  eggplant: 'eggplant', eggplants: 'eggplant', aubergine: 'eggplant',
+  onion: 'onion', onions: 'onion',
+  garlic: 'garlic',
+  tomato: 'tomato', tomatoes: 'tomato',
+  potato: 'potato', potatoes: 'potato',
+  lemon: 'lemon', lemons: 'lemon',
+  apple: 'apple', apples: 'apple', banana: 'banana', bananas: 'banana',
+  cucumber: 'cucumber',
+  carrot: 'carrot', carrots: 'carrot',
+  pepper: 'pepper', peppers: 'pepper',
+  spinach: 'spinach',
+  mushroom: 'mushroom', mushrooms: 'mushroom',
 
-  // Greek (diacritic-stripped lowercase)
-  γαλα: 'milk', τυρι: 'cheese', γιαουρτι: 'yogurt', βουτυρο: 'butter',
-  κρεμα: 'cream', αυγο: 'egg', αυγα: 'egg',
+  // Greek (diacritic-stripped lowercase) — dairy
+  γαλα: 'milk', τυρι: 'cheese', φετα: 'cheese', γιαουρτι: 'yogurt',
+  βουτυρο: 'butter', κρεμα: 'cream', αυγο: 'egg', αυγα: 'egg',
+  // Greek — meat / fish
   κοτοπουλο: 'chicken', χοιρινο: 'pork', βοδινο: 'beef', μοσχαρι: 'beef',
   αρνι: 'lamb', γαλοπουλα: 'turkey', ψαρι: 'fish', γαριδα: 'shrimp',
-  ψωμι: 'bread', ζυμαρικα: 'pasta', ρυζι: 'rice', αλευρι: 'flour',
-  λαδι: 'oil', ξυδι: 'vinegar', ζαχαρη: 'sugar', αλατι: 'salt', μελι: 'honey',
+  // Greek — staples
+  ψωμι: 'bread', ζυμαρικα: 'pasta', μακαρονι: 'pasta', σπαγγετο: 'pasta',
+  ρυζι: 'rice', αλευρι: 'flour',
+  λαδι: 'oil', ελαιολαδο: 'oil', ξυδι: 'vinegar', ζαχαρη: 'sugar',
+  αλατι: 'salt', μελι: 'honey',
+  // Greek — drinks
   νερο: 'water', χυμος: 'juice', καφες: 'coffee', τσαι: 'tea',
   μπυρα: 'beer', κρασι: 'wine',
+  // Greek — sweets / snacks
   σοκολατα: 'chocolate', μπισκοτο: 'biscuit', σνακ: 'snack',
   δημητριακα: 'cereal',
+  // Greek — household
   σαπουνι: 'soap', απορρυπαντικο: 'detergent', σαμπουαν: 'shampoo',
+  // Greek — vegetables / fruit
+  μελιτζανα: 'eggplant', μελιτζανες: 'eggplant',
+  κρεμμυδι: 'onion', κρεμμυδια: 'onion',
+  σκορδο: 'garlic',
+  ντοματα: 'tomato', ντοματες: 'tomato',
+  πατατα: 'potato', πατατες: 'potato',
+  λεμονι: 'lemon', λεμονια: 'lemon',
+  μηλο: 'apple', μηλα: 'apple', μπανανα: 'banana', μπανανες: 'banana',
+  αγγουρι: 'cucumber',
+  καροτο: 'carrot', καροτα: 'carrot',
+  πιπερι: 'pepper', πιπερια: 'pepper', πιπεριες: 'pepper',
+  σπανακι: 'spinach',
+  μανιταρι: 'mushroom', μανιταρια: 'mushroom',
 };
 
 // Top-level category aliases ("dairy" -> "Dairy", "γαλακτοκομικα" -> "Dairy")
@@ -351,6 +407,107 @@ function resolveIntent(query: string): ResolvedIntent {
 }
 
 // ============================================================================
+// Basket comparison
+// ============================================================================
+
+export interface BasketLine {
+  product: Product;
+  quantity: number;
+  /** null if the chain doesn't stock this product. */
+  unitPrice: number | null;
+  /** unitPrice * quantity, or 0 if not stocked. */
+  lineTotal: number;
+}
+
+export interface ChainBasket {
+  store: Store;
+  /** Sum of unitPrice * quantity for items this chain stocks. */
+  total: number;
+  /** Number of distinct basket lines this chain stocks (irrespective of qty). */
+  itemsAvailable: number;
+  /** Number of distinct basket lines this chain does NOT stock. */
+  itemsMissing: number;
+  /** Per-line breakdown in the same order as the input. */
+  lines: BasketLine[];
+}
+
+/**
+ * Map of productId -> quantity (>=1). Used as the canonical basket shape.
+ */
+export type BasketEntries = Map<string, number>;
+
+/**
+ * Compare a basket across all chains. Returns chains sorted by:
+ *   1. Items available (more is better) — covers the "missing item" trade-off
+ *   2. Total price (cheaper wins)
+ *
+ * Each line is multiplied by its quantity. Items the chain doesn't stock
+ * contribute 0 to total and increment itemsMissing.
+ */
+export function compareBasketByChain(
+  basket: BasketEntries | string[]
+): ChainBasket[] {
+  // Accept legacy string[] for backward compatibility — treat each id as qty=1.
+  const entries: BasketEntries =
+    basket instanceof Map
+      ? basket
+      : new Map(basket.map((id) => [id, 1] as [string, number]));
+  if (entries.size === 0) return [];
+
+  const result: ChainBasket[] = [];
+
+  for (const store of stores) {
+    const lines: BasketLine[] = [];
+    let total = 0;
+    let itemsAvailable = 0;
+
+    for (const [id, qtyRaw] of entries) {
+      const facts = factsByProductId.get(id);
+      if (!facts) continue;
+      const quantity = Math.max(1, Math.floor(qtyRaw || 1));
+      const match = facts.sortedPrices.find((sp) => sp.store.id === store.id);
+      if (match) {
+        const lineTotal = match.price * quantity;
+        lines.push({
+          product: facts.product,
+          quantity,
+          unitPrice: match.price,
+          lineTotal,
+        });
+        total += lineTotal;
+        itemsAvailable += 1;
+      } else {
+        lines.push({
+          product: facts.product,
+          quantity,
+          unitPrice: null,
+          lineTotal: 0,
+        });
+      }
+    }
+
+    if (itemsAvailable === 0) continue;
+
+    result.push({
+      store,
+      total,
+      itemsAvailable,
+      itemsMissing: lines.length - itemsAvailable,
+      lines,
+    });
+  }
+
+  result.sort((a, b) => {
+    if (a.itemsAvailable !== b.itemsAvailable) {
+      return b.itemsAvailable - a.itemsAvailable;
+    }
+    return a.total - b.total;
+  });
+
+  return result;
+}
+
+// ============================================================================
 // Public API
 // ============================================================================
 
@@ -358,6 +515,20 @@ export const allStores: Store[] = stores;
 
 export function getFacts(productId: string): ProductFacts | undefined {
   return factsByProductId.get(productId);
+}
+
+/**
+ * True iff the user's query (after tokenization) hits a known productType
+ * or category phrase. Used by the chat UI to decide whether a search result
+ * is trustworthy "by intent" or whether a stricter lexical-overlap check
+ * needs to be applied on top.
+ */
+export function queryHasIntent(query: string): boolean {
+  const tokens = tokenize(query);
+  for (const tok of tokens) {
+    if (PHRASE_TO_TYPE[tok] || PHRASE_TO_CATEGORY_TOP[tok]) return true;
+  }
+  return false;
 }
 
 /**
@@ -479,6 +650,36 @@ export function listProductTypes(): { type: string; count: number }[] {
   return [...idsByType.entries()]
     .map(([type, ids]) => ({ type, count: ids.size }))
     .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * List top-level categories (first segment of categoryClean, e.g. 'Dairy')
+ * with product counts, sorted by count desc. Used by the "Create Basket"
+ * category picker.
+ */
+export function listTopCategories(): { name: string; count: number }[] {
+  return [...idsByCategoryTop.entries()]
+    .map(([name, ids]) => ({ name, count: ids.size }))
+    .filter((c) => c.count > 0)
+    .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Group a list of ProductFacts by their enriched productType. Used to render
+ * sub-sections under a top category. Products with no productType land in
+ * the empty-key bucket and the caller can decide to skip them.
+ */
+export function groupByProductType(
+  facts: ProductFacts[]
+): Map<string, ProductFacts[]> {
+  const grouped = new Map<string, ProductFacts[]>();
+  for (const f of facts) {
+    const type = f.enriched?.productType ?? '';
+    const bucket = grouped.get(type) ?? [];
+    bucket.push(f);
+    grouped.set(type, bucket);
+  }
+  return grouped;
 }
 
 // ============================================================================

@@ -27,6 +27,45 @@ const resources = {
       // Errors
       errorNoConnection: 'Cannot connect to Ollama',
       errorGeneric: 'Something went wrong',
+
+      // Basket
+      basket: 'Basket',
+      basketEmpty: 'Your basket is empty.',
+      basketHint: 'Tap "Add" on any product to compare basket totals across stores.',
+      basketAdd: 'Add',
+      basketAdded: 'Added',
+      basketRemove: 'Remove',
+      basketClear: 'Clear basket',
+      basketCompare: 'Compare across stores',
+      basketCheapestStore: 'Cheapest store',
+      basketTotal: 'Total',
+      basketAvailableOf: 'has {{available}}/{{total}} items',
+      basketMissing: '{{count}} not stocked',
+      basketNoStores: 'No store carries any of these items.',
+      basketClose: 'Close',
+
+      // Create Basket
+      basketCreate: '+ Build basket by category',
+      basketCreateTitle: 'Build basket',
+      basketCreatePickCat: 'Pick a category',
+      basketCreateAddSelected: 'Add {{count}} to basket',
+      basketCreateNoSelection: 'Tap items to select',
+      basketCreateSearch: 'Filter products…',
+
+      // Type-your-list
+      basketTypeList: '✎ Type your list',
+      basketTypeListTitle: 'Type your shopping list',
+      basketTypeListPlaceholder: 'One item per line\ne.g.\n- 2 milk\n- feta cheese 400g\n- olive oil',
+      basketTypeListMatch: 'Match items',
+      basketTypeListEdit: 'Edit list',
+      basketTypeListAutoAdded: '{{count}} matched automatically',
+      basketTypeListNeedsReview: 'Needs your choice ({{count}})',
+      basketTypeListNotFound: 'No good matches ({{count}})',
+      basketTypeListNoMatch: 'No product matched — search to add manually:',
+      basketTypeListManualSearch: 'Search the catalog…',
+      basketTypeListSkip: 'Skip',
+      basketTypeListPickOne: 'Pick one:',
+      basketTypeListConfirm: 'Add {{count}} to basket',
     },
   },
   el: {
@@ -54,6 +93,45 @@ const resources = {
       // Errors
       errorNoConnection: 'Δεν μπορώ να συνδεθώ με το Ollama',
       errorGeneric: 'Κάτι πήγε στραβά',
+
+      // Basket
+      basket: 'Καλάθι',
+      basketEmpty: 'Το καλάθι σου είναι άδειο.',
+      basketHint: 'Πάτησε "Προσθήκη" σε ένα προϊόν για να συγκρίνεις σύνολο ανά κατάστημα.',
+      basketAdd: 'Προσθήκη',
+      basketAdded: 'Προστέθηκε',
+      basketRemove: 'Αφαίρεση',
+      basketClear: 'Άδειασμα',
+      basketCompare: 'Σύγκριση καταστημάτων',
+      basketCheapestStore: 'Φθηνότερο κατάστημα',
+      basketTotal: 'Σύνολο',
+      basketAvailableOf: 'έχει {{available}}/{{total}} προϊόντα',
+      basketMissing: '{{count}} δεν διατίθενται',
+      basketNoStores: 'Κανένα κατάστημα δεν διαθέτει αυτά τα προϊόντα.',
+      basketClose: 'Κλείσιμο',
+
+      // Create Basket
+      basketCreate: '+ Δημιουργία καλαθιού ανά κατηγορία',
+      basketCreateTitle: 'Δημιουργία καλαθιού',
+      basketCreatePickCat: 'Διάλεξε κατηγορία',
+      basketCreateAddSelected: 'Προσθήκη {{count}} στο καλάθι',
+      basketCreateNoSelection: 'Πάτησε για να επιλέξεις',
+      basketCreateSearch: 'Φίλτρο προϊόντων…',
+
+      // Type-your-list
+      basketTypeList: '✎ Πληκτρολόγησε τη λίστα',
+      basketTypeListTitle: 'Πληκτρολόγησε τη λίστα ψωνιών',
+      basketTypeListPlaceholder: 'Ένα προϊόν ανά γραμμή\nπ.χ.\n- 2 γάλα\n- φέτα 400g\n- ελαιόλαδο',
+      basketTypeListMatch: 'Αντιστοίχιση',
+      basketTypeListEdit: 'Επεξεργασία λίστας',
+      basketTypeListAutoAdded: '{{count}} βρέθηκαν αυτόματα',
+      basketTypeListNeedsReview: 'Χρειάζεται επιλογή ({{count}})',
+      basketTypeListNotFound: 'Δεν βρέθηκαν ({{count}})',
+      basketTypeListNoMatch: 'Δεν βρέθηκε προϊόν — αναζήτησε χειροκίνητα:',
+      basketTypeListManualSearch: 'Αναζήτηση στον κατάλογο…',
+      basketTypeListSkip: 'Παράλειψη',
+      basketTypeListPickOne: 'Διάλεξε ένα:',
+      basketTypeListConfirm: 'Προσθήκη {{count}} στο καλάθι',
     },
   },
 };

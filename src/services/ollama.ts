@@ -133,13 +133,31 @@ class OllamaService {
         : `You are a Greek supermarket price comparison assistant. Stores: ${storeList}.`;
 
     if (!facts) {
-      return (
-        intro +
-        '\n\n' +
-        (language === 'el'
-          ? 'Δεν βρέθηκαν σχετικά προϊόντα στη βάση δεδομένων για αυτό το ερώτημα. Πες το ευγενικά στον χρήστη.'
-          : 'No relevant products were found in the database for this query. Politely tell the user.')
-      );
+      // No direct catalog match for this query — the user is probably asking
+      // for a recipe / general help. The UI parses "## Ingredients" sections
+      // as add-to-basket checkboxes, so guide the LLM to use that exact
+      // heading whenever it lists shoppable items.
+      const recipeRules =
+        language === 'el'
+          ? [
+              'Αν η ερώτηση είναι συνταγή ή λίστα προϊόντων, χρησιμοποίησε αυτή τη δομή:',
+              '## Συστατικά',
+              '- κάθε υλικό σε δικιά του γραμμή με ποσότητα',
+              '## Οδηγίες',
+              '1. κάθε βήμα μαγειρέματος σε δικιά του γραμμή',
+              '',
+              'Διαφορετικά, απάντησε φυσιολογικά. Μη βάζεις τη λέξη "Συστατικά" σε άλλα μέρη.',
+            ].join('\n')
+          : [
+              'If the user asks for a recipe or a shopping list, structure your reply exactly like this:',
+              '## Ingredients',
+              '- one ingredient per line, with quantity',
+              '## Instructions',
+              '1. each cooking step on its own line',
+              '',
+              'Otherwise, reply naturally. Do not use the word "Ingredients" as a heading anywhere else.',
+            ].join('\n');
+      return intro + '\n\n' + recipeRules;
     }
 
     const dataHeader =
@@ -275,7 +293,71 @@ class OllamaService {
     }
 
     // Use local data (fast and reliable)
+    // Use local data (fast and reliable)
     return this.getCheapestPriceLocal(product, language);
+  }
+
+  // Process recipe queries using the Recipe Engine
+  async queryRecipe(recipeText: string, language: string = 'en'): Promise<QueryResult> {
+    try {
+      // Use the recipe engine to process the recipe
+      const recipe = recipeEngine.processRecipe(recipeText);
+      
+      // Build the response based on language
+      const answer = this.buildRecipeResponse(recipe, language);
+      
+      // Include recipe data for UI
+      return {
+        answer,
+        recipe: recipe,
+        cheapestStore: recipe.totalCostByStore[0]?.storeId ? getStoreById(recipe.totalCostByStore[0].storeId) : undefined,
+      };
+    } catch (error) {
+      console.error('Recipe query error:', error);
+      
+      const errorMsg = language === 'el'
+        ? 'Υπήρξε σφάλμα κατά την επεξεργασία της συνταγής. Παρακαλώ δοκιμάστε ξανά.'
+        : 'There was an error processing the recipe. Please try again.';
+      
+      return { answer: errorMsg };
+    }
+  }
+
+  // Build recipe response text based on language
+  private buildRecipeResponse(recipe: any, language: string): string {
+    const bestStore = recipe.totalCostByStore[0];
+    
+    if (!bestStore) {
+      return language === 'el'
+        ? 'Δεν βρέθηκαν συστάτηρα για αυτή τη συνταγή.'
+        : 'No stores were found for this recipe.';
+    }
+
+    const storesList = recipe.totalCostByStore.slice(0, 3)
+      .map((s: any) => `${s.storeNameGreek} (€${s.total.toFixed(2)})`)
+      .join(', ');
+
+    const answerLines = language === 'el' ? [
+      `📦 **${recipe.name}**`,
+      '',
+      `**Φθηνότερο κατάστημα:** ${bestStore.storeNameGreek} - €${bestStore.total.toFixed(2)}`,
+      `**Διαθέσιμα προϊόντα:** ${bestStore.itemsAvailable}/${recipe.ingredients.length}`,
+      '',
+      `**Επιλογές καταστημάτων:** ${storesList}`,
+      '',
+      `**Εκτιμώμενη τιμή:** €${recipe.estimatedPriceRange.min.toFixed(2)} - €${recipe.estimatedPriceRange.max.toFixed(2)}`,
+    ] : [
+      `📦 **${recipe.name}**`,
+      '',
+      `**Cheapest store:** ${bestStore.storeNameGreek} - €${bestStore.total.toFixed(2)}`,
+      `**Items available:** ${bestStore.itemsAvailable}/${recipe.ingredients.length}`,
+      '',
+      `**Store options:** ${storesList}`,
+      '',
+      `**Estimated price range:** €${recipe.estimatedPriceRange.min.toFixed(2)} - €${recipe.estimatedPriceRange.max.toFixed(2)}`,
+    ];
+
+    return answerLines.join('\n');
   }
 }
 
