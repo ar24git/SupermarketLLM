@@ -19,6 +19,9 @@
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png"
       }
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

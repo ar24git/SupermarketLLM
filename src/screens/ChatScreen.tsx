@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ollamaService } from '../services/ollama';
 import { recipeEngine } from '../services/recipeEngine';
 import { Product, QueryResult } from '../types';
@@ -1080,6 +1081,35 @@ function TypeListModal({
   );
 }
 
+/**
+ * Empty-state sample question button. Icon is a MaterialCommunityIcons name
+ * so we can use food-specific glyphs (cup, cheese, bottle-tonic, ...) instead
+ * of emoji that render inconsistently across platforms.
+ */
+function SampleButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.sampleButton} onPress={onPress} activeOpacity={0.7}>
+      <MaterialCommunityIcons
+        name={icon}
+        size={20}
+        color="#558b2f"
+        style={styles.sampleButtonIcon}
+      />
+      <Text style={styles.sampleButtonText} numberOfLines={2}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function ChatScreen() {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
@@ -1238,24 +1268,37 @@ export default function ChatScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity
             onPress={() => navigation.navigate('PriceTracker')}
-            style={styles.priceTrackerButton}
+            style={styles.iconButton}
+            accessibilityLabel={t('priceTracker.title')}
           >
-            <Text style={styles.priceTrackerButtonText}>📊</Text>
+            <Ionicons name="stats-chart-outline" size={20} color="#37474f" />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setBasketOpen(true)}
             style={[
-              styles.basketButton,
-              basket.size > 0 && styles.basketButtonActive,
+              styles.iconButton,
+              basket.size > 0 && styles.iconButtonActive,
             ]}
+            accessibilityLabel={t('basket')}
           >
-            <Text style={styles.basketButtonText}>
-              🛒 {basket.size > 0 ? basket.size : ''}
-            </Text>
+            <Ionicons
+              name="cart-outline"
+              size={22}
+              color={basket.size > 0 ? '#2e7d32' : '#37474f'}
+            />
+            {basket.size > 0 && (
+              <View style={styles.iconBadge}>
+                <Text style={styles.iconBadgeText}>{basket.size}</Text>
+              </View>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={toggleLanguage} style={styles.langButton}>
-            <Text style={styles.langButtonText}>
-              {i18n.language === 'en' ? '🇬🇷 EL' : '🇬🇧 EN'}
+          <TouchableOpacity
+            onPress={toggleLanguage}
+            style={styles.langPill}
+            accessibilityLabel="Toggle language"
+          >
+            <Text style={styles.langPillText}>
+              {i18n.language === 'en' ? 'EL' : 'EN'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1275,24 +1318,21 @@ export default function ChatScreen() {
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>{t('tagline')}</Text>
               <Text style={styles.sampleTitle}>{t('sampleQuestions')}</Text>
-              <TouchableOpacity 
-                style={styles.sampleButton}
+              <SampleButton
+                icon="cup-outline"
+                label={t('sample1')}
                 onPress={() => handleSampleQuestion(t('sample1'))}
-              >
-                <Text style={styles.sampleButtonText}>🥛 {t('sample1')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.sampleButton}
+              />
+              <SampleButton
+                icon="cheese"
+                label={t('sample2')}
                 onPress={() => handleSampleQuestion(t('sample2'))}
-              >
-                <Text style={styles.sampleButtonText}>🧀 {t('sample2')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.sampleButton}
+              />
+              <SampleButton
+                icon="bottle-tonic-outline"
+                label={t('sample3')}
                 onPress={() => handleSampleQuestion(t('sample3'))}
-              >
-                <Text style={styles.sampleButtonText}>🫒 {t('sample3')}</Text>
-              </TouchableOpacity>
+              />
             </View>
           )}
 
@@ -1359,15 +1399,16 @@ export default function ChatScreen() {
             onSubmitEditing={handleSend}
             blurOnSubmit={false}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.sendButton,
-              (!input.trim() || isLoading) && styles.sendButtonDisabled
+              (!input.trim() || isLoading) && styles.sendButtonDisabled,
             ]}
             onPress={handleSend}
             disabled={!input.trim() || isLoading}
+            accessibilityLabel={t('sendButton')}
           >
-            <Text style={styles.sendButtonText}>{t('sendButton')}</Text>
+            <Ionicons name="send" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -1382,9 +1423,12 @@ export default function ChatScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                🛒 {t('basket')} ({basket.size})
-              </Text>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="cart" size={18} color="#212121" style={{ marginRight: 8 }} />
+                <Text style={styles.modalTitle}>
+                  {t('basket')} ({basket.size})
+                </Text>
+              </View>
               <TouchableOpacity onPress={() => setBasketOpen(false)}>
                 <Text style={styles.modalClose}>{t('basketClose')}</Text>
               </TouchableOpacity>
@@ -1397,6 +1441,7 @@ export default function ChatScreen() {
                   onPress={() => setCreateBasketOpen(true)}
                   style={[styles.createBasketButton, { flex: 1 }]}
                 >
+                  <Ionicons name="grid-outline" size={16} color="#1565c0" style={{ marginRight: 6 }} />
                   <Text style={styles.createBasketButtonText}>
                     {t('basketCreate')}
                   </Text>
@@ -1405,6 +1450,7 @@ export default function ChatScreen() {
                   onPress={() => setTypeListOpen(true)}
                   style={[styles.typeListButton, { flex: 1 }]}
                 >
+                  <Ionicons name="create-outline" size={16} color="#e65100" style={{ marginRight: 6 }} />
                   <Text style={styles.typeListButtonText}>
                     {t('basketTypeList')}
                   </Text>
@@ -1653,45 +1699,60 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  basketButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  // Header icon buttons — same 36×36 circular treatment for all three so the
+  // header looks like a coherent toolbar instead of three differently-styled
+  // emoji pills.
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#f5f5f5',
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
-  basketButtonActive: {
-    backgroundColor: '#fff3e0',
-    borderColor: '#ffb74d',
-  },
-  basketButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  langButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  iconButtonActive: {
     backgroundColor: '#e8f5e9',
-    borderRadius: 16,
+    borderColor: '#a5d6a7',
   },
-  langButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2e7d32',
+  iconBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#2e7d32',
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
-  priceTrackerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#fff3e0',
-    borderRadius: 16,
-    marginRight: 8,
+  iconBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
   },
-  priceTrackerButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#e65100',
+  langPill: {
+    minWidth: 36,
+    height: 36,
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#37474f',
+    letterSpacing: 0.5,
   },
   // Assistant message: rich content (headings, paragraphs, checkbox bullets)
   contentHeading: {
@@ -1831,6 +1892,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   modalTitle: {
     fontSize: 18,
@@ -2034,7 +2099,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: '#e3f2fd',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 8,
   },
   createBasketButtonText: {
@@ -2131,7 +2198,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: '#fff8e1',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   typeListButtonText: {
     color: '#e65100',
@@ -2341,22 +2410,25 @@ const styles = StyleSheet.create({
   },
   sampleButton: {
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 8,
     width: '100%',
-    maxWidth: 300,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    maxWidth: 320,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  sampleButtonIcon: {
+    marginRight: 10,
   },
   sampleButtonText: {
+    flex: 1,
     fontSize: 14,
-    color: '#333',
-    textAlign: 'center',
+    color: '#212121',
+    textAlign: 'left',
   },
   messageBubble: {
     maxWidth: '80%',
@@ -2401,17 +2473,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   sendButton: {
-    backgroundColor: '#4caf50',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    backgroundColor: '#4caf50',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#a5d6a7',
-  },
-  sendButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 15,
+    backgroundColor: '#c8e6c9',
   },
 });

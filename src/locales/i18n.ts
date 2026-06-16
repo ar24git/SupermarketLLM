@@ -46,7 +46,7 @@ const resources = {
       basketClose: 'Close',
 
       // Create Basket
-      basketCreate: '+ Build basket by category',
+      basketCreate: 'Build basket by category',
       basketCreateTitle: 'Build basket',
       basketCreatePickCat: 'Pick a category',
       basketCreateAddSelected: 'Add {{count}} to basket',
@@ -54,7 +54,7 @@ const resources = {
       basketCreateSearch: 'Filter products…',
 
       // Type-your-list
-      basketTypeList: '✎ Type your list',
+      basketTypeList: 'Type your list',
       basketTypeListTitle: 'Type your shopping list',
       basketTypeListPlaceholder: 'e.g. 2 milk',
       basketTypeListAddRow: 'Add item',
@@ -150,7 +150,7 @@ const resources = {
       basketClose: 'Κλείσιμο',
 
       // Create Basket
-      basketCreate: '+ Δημιουργία καλαθιού ανά κατηγορία',
+      basketCreate: 'Δημιουργία καλαθιού ανά κατηγορία',
       basketCreateTitle: 'Δημιουργία καλαθιού',
       basketCreatePickCat: 'Διάλεξε κατηγορία',
       basketCreateAddSelected: 'Προσθήκη {{count}} στο καλάθι',
@@ -158,7 +158,7 @@ const resources = {
       basketCreateSearch: 'Φίλτρο προϊόντων…',
 
       // Type-your-list
-      basketTypeList: '✎ Πληκτρολόγησε τη λίστα',
+      basketTypeList: 'Πληκτρολόγησε τη λίστα',
       basketTypeListTitle: 'Πληκτρολόγησε τη λίστα ψωνιών',
       basketTypeListPlaceholder: 'π.χ. 2 γάλα',
       basketTypeListAddRow: 'Προσθήκη γραμμής',

@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 
 import { products } from '../data/superMarkets';
 import {
@@ -293,9 +294,7 @@ export default function PriceTrackerScreen() {
         >
           <View style={styles.trendCardHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>
-                📈 {t('priceTracker.avgTrend')}
-              </Text>
+              <SectionTitle icon="trending-up" text={t('priceTracker.avgTrend')} />
               <Text style={styles.sectionHint}>
                 {PREV
                   ? t('priceTracker.avgTrendHint', { date: PREV.date })
@@ -339,11 +338,14 @@ export default function PriceTrackerScreen() {
 
         {/* Chain leaderboard */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            🏆 {category
-              ? `${t('priceTracker.chainAvgInCategory')} — ${category}`
-              : t('priceTracker.chainLeaderboard')}
-          </Text>
+          <SectionTitle
+            icon="trophy"
+            text={
+              category
+                ? `${t('priceTracker.chainAvgInCategory')} — ${category}`
+                : t('priceTracker.chainLeaderboard')
+            }
+          />
           <Text style={styles.sectionHint}>
             {category
               ? t('priceTracker.chainAvgHint')
@@ -398,9 +400,7 @@ export default function PriceTrackerScreen() {
         {/* Top deals */}
         {filteredDeals.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              💰 {t('priceTracker.topDeals')}
-            </Text>
+            <SectionTitle icon="cash-outline" text={t('priceTracker.topDeals')} />
             <Text style={styles.sectionHint}>
               {t('priceTracker.topDealsHint')}
             </Text>
@@ -435,9 +435,7 @@ export default function PriceTrackerScreen() {
 
         {/* Search + table */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            🔍 {t('priceTracker.fullPriceTable')}
-          </Text>
+          <SectionTitle icon="search" text={t('priceTracker.fullPriceTable')} />
           <TextInput
             style={styles.searchInput}
             placeholder={t('priceTracker.searchPlaceholder')}
@@ -533,9 +531,12 @@ export default function PriceTrackerScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                📈 {t('priceTracker.avgTrend')}
-              </Text>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="trending-up" size={18} color="#212121" style={{ marginRight: 8 }} />
+                <Text style={styles.modalTitle}>
+                  {t('priceTracker.avgTrend')}
+                </Text>
+              </View>
               <TouchableOpacity onPress={() => setTrendOpen(false)}>
                 <Text style={styles.modalClose}>{t('basketClose')}</Text>
               </TouchableOpacity>
@@ -595,6 +596,23 @@ export default function PriceTrackerScreen() {
 // ============================================================================
 // Sub-components
 // ============================================================================
+
+/** Section title with a leading Ionicon — used to replace the emoji prefix
+ *  pattern (e.g. "🏆 Leaderboard") so every section header looks consistent. */
+function SectionTitle({
+  icon,
+  text,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  text: string;
+}) {
+  return (
+    <View style={styles.sectionTitleRow}>
+      <Ionicons name={icon} size={16} color="#37474f" style={styles.sectionTitleIcon} />
+      <Text style={styles.sectionTitle}>{text}</Text>
+    </View>
+  );
+}
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -778,11 +796,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  sectionTitleIcon: {
+    marginRight: 6,
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#212121',
     marginBottom: 4,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sectionHint: {
     fontSize: 11,
