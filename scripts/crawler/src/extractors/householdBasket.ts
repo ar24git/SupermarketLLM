@@ -239,14 +239,14 @@ export async function scrapeHouseholdBasket(
       if (p.rawPrices) console.log(`    rawPrices: ${JSON.stringify(p.rawPrices).slice(0, 200)}`);
     }
     if (extracted.retailers.length > 0) {
-      console.log('  Retailers:', extracted.retailers.map(r => `${r.id}:${r.name}`).join(', '));
+      console.log('  Retailers:', extracted.retailers.map((r: { id: string; name: string }) => `${r.id}:${r.name}`).join(', '));
     }
   }
 
   // Step 3: Now we need per-retailer prices. If products don't have retailer-level prices,
   // we need to click on each retailer tab on the basket page to get them.
   // First, check if we already have per-retailer prices from Ember store.
-  const hasRetailerPrices = extracted.products.some(p => p.rawPrices != null);
+  const hasRetailerPrices = extracted.products.some((p: { rawPrices: unknown }) => p.rawPrices != null);
 
   if (hasRetailerPrices) {
     const r = buildResultFromEmberData(extracted);

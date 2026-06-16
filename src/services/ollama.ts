@@ -297,32 +297,6 @@ class OllamaService {
     return this.getCheapestPriceLocal(product, language);
   }
 
-  // Process recipe queries using the Recipe Engine
-  async queryRecipe(recipeText: string, language: string = 'en'): Promise<QueryResult> {
-    try {
-      // Use the recipe engine to process the recipe
-      const recipe = recipeEngine.processRecipe(recipeText);
-      
-      // Build the response based on language
-      const answer = this.buildRecipeResponse(recipe, language);
-      
-      // Include recipe data for UI
-      return {
-        answer,
-        recipe: recipe,
-        cheapestStore: recipe.totalCostByStore[0]?.storeId ? getStoreById(recipe.totalCostByStore[0].storeId) : undefined,
-      };
-    } catch (error) {
-      console.error('Recipe query error:', error);
-      
-      const errorMsg = language === 'el'
-        ? 'Υπήρξε σφάλμα κατά την επεξεργασία της συνταγής. Παρακαλώ δοκιμάστε ξανά.'
-        : 'There was an error processing the recipe. Please try again.';
-      
-      return { answer: errorMsg };
-    }
-  }
-
   // Build recipe response text based on language
   private buildRecipeResponse(recipe: any, language: string): string {
     const bestStore = recipe.totalCostByStore[0];

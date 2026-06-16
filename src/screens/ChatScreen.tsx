@@ -16,10 +16,12 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ollamaService } from '../services/ollama';
 import { recipeEngine } from '../services/recipeEngine';
 import { Product, QueryResult } from '../types';
+import type { RootStackParamList } from '../navigation';
 import {
   compareBasketByChain,
   getFacts,
@@ -1112,7 +1114,7 @@ function SampleButton({
 
 export default function ChatScreen() {
   const { t, i18n } = useTranslation();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
