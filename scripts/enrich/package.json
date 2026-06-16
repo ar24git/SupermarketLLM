@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "enrich": "tsx src/index.ts"
+    "enrich": "tsx src/index.ts",
+    "enrich:normalize": "tsx src/index.ts --normalize-only"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

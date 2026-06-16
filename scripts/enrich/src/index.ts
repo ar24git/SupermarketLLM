@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { normalizeEnriched } from './normalize';
+import type { EnrichedProduct } from './normalize';
 
 // -------- Config --------
 
@@ -27,26 +29,6 @@ interface SourceProduct {
   nameGreek: string;
   category: string;
   unit: string;
-}
-
-interface EnrichedProduct {
-  id: string;
-  // Verbatim fields we just copy through:
-  name: string;
-  nameGreek: string;
-  unit: string;
-  sourceCategory: string;
-  // LLM-derived classification:
-  productType: string;          // milk, cheese, chicken, pork, water, ...
-  subtype: string | null;       // fresh, condensed, smoked, ground, fillet, ...
-  brand: string | null;         // Δέλτα, Vlachas, Lidl, ...
-  variant: string | null;       // light, full-fat, organic, gluten-free, ...
-  sizeMl: number | null;        // for liquids, null otherwise
-  sizeG: number | null;         // for solids, null otherwise
-  packCount: number | null;     // pieces per pack ("12/1L" -> 12)
-  categoryClean: string;        // "Dairy/Milk", "Meat/Chicken", ...
-  isFood: boolean;
-  confidence: number;           // 0..1 self-reported by LLM
 }
 
 interface LlmClassification {
@@ -104,7 +86,7 @@ async function classify(product: SourceProduct): Promise<EnrichedProduct | null>
       return null;
     }
 
-    return normalize(product, parsed);
+    return normalizeEnriched(normalize(product, parsed));
   } catch (err: any) {
     clearTimeout(timeoutId);
     console.warn(`[${product.id}] error: ${err?.message || err}`);
@@ -117,7 +99,7 @@ function systemPrompt(): string {
 
 Always return a JSON object with EXACTLY these fields:
 {
-  "productType": "<lowercase English single word for the core item: milk, cheese, yogurt, butter, cream, chicken, pork, beef, lamb, turkey, fish, shrimp, bread, rusk, pasta, rice, flour, oil, vinegar, sugar, salt, water, juice, soda, coffee, tea, beer, wine, soap, detergent, paper, diaper, chocolate, biscuit, snack, cereal, ...>",
+  "productType": "<lowercase English single word for the core item: milk, cheese, yogurt, butter, cream, chicken, pork, beef, lamb, turkey, fish, shrimp, bread, rusk, pasta, rice, flour, oil, vinegar, sugar, salt, water, juice, soda, coffee, tea, beer, wine, soap, detergent, paper, diaper, chocolate, biscuit, wafer, cracker, pastry, cake, halva, candy, gum, cereal, ...>",
   "subtype": "<optional qualifier: fresh, condensed, sweetened, powdered, evaporated, smoked, cured, ground, fillet, breast, leg, whole, sliced, frozen, ... or null>",
   "brand": "<brand name as it appears, or null if generic>",
   "variant": "<light, full-fat, skim, low-fat, organic, gluten-free, lactose-free, sugar-free, whole-grain, ... or null>",
@@ -129,15 +111,84 @@ Always return a JSON object with EXACTLY these fields:
   "confidence": <0..1 number reflecting how sure you are>
 }
 
-Critical rules:
+GENERAL RULES:
 - productType is the CORE thing. "ΣΟΚΟΛΑΤΑ ΓΑΛΑΚΤΟΣ" (milk chocolate) -> productType="chocolate", NOT "milk".
 - "ΓΑΛΑ ΖΑΧΑΡΟΥΧΟ" (sweetened condensed milk) -> productType="milk", subtype="sweetened_condensed".
 - "ΡΟΦΗΜΑ ΑΜΥΓΔΑΛΟ" (almond drink) -> productType="plant_drink", subtype="almond".
 - "ΤΥΡΙ ΚΡΕΜΑ" (cream cheese) -> productType="cheese", subtype="cream".
 - Packaging codes like "12/1L" mean 12 packs of 1L; set packCount=12, sizeMl=1000.
 - "650G" -> sizeG=650. "1. 5L" or "1.5L" -> sizeMl=1500.
-- Common Greek abbreviations: ΓΑΛ.=γάλακτος/milk, ΣΟΚ.=σοκολάτα/chocolate, ΦΡΕΣ.=φρέσκο/fresh, ΕΛΑΦΡ.=ελαφρύ/light, ΠΛΗΡΕΣ=full-fat, Υ.Π.=υψηλής παστερίωσης/high-pasteurized, ΑΦ.=αφρόλουτρο/shower-foam, ΓΑΡΟΣ=fish sauce, ΑΛΜΗ=brine, ΚΡΑΝΜΠ.=cranberry, ΡΑΣΜΠ.=raspberry, ΜΠΛΟΥΜΠ.=blueberry.
-- Be specific in categoryClean. Use exact slash format, no spaces.
+- Common Greek abbreviations: ΓΑΛ.=γάλακτος/milk, ΣΟΚ.=σοκολάτα/chocolate, ΦΡΕΣ.=φρέσκο/fresh, ΕΛΑΦΡ.=ελαφρύ/light, ΠΛΗΡΕΣ=full-fat, Υ.Π.=υψηλής παστερίωσης/high-pasteurized, ΑΦ.=αφρόλουτρο/shower-foam, ΓΑΡΟΣ=fish sauce, ΑΛΜΗ=brine, ΚΡΑΝΜΠ.=cranberry, ΡΑΣΜΠ.=raspberry, ΜΠΛΟΥΜΠ.=blueberry, ΜΠ.=μπισκότα/biscuits, ΣΟΚ.=σοκολάτα/chocolate, ΚΡΟΥΣ.=κρουασάν/croissant, ΓΚΟΦΡ.=γκοφρέτα/wafer, ΚΡΑΚ.=κράκερ/cracker, ΤΣΙΧΛ.=τσίχλα/chewing-gum, ΒΑΜΒ.=βαμβάκι/cotton, ΣΦΟΥΓ.=σφουγγάρι/sponge, ΣΚ.=σκύλου/dog, ΓΑΤ.=γάτας/cat, ΠΟΛ.=πολυτελείας/premium.
+- Be specific in categoryClean. Use exact slash format, no spaces, no underscores.
+
+PRODUCT-TYPE DISAMBIGUATION (the #1 source of errors is over-using "biscuit" and "snack" as catch-alls):
+
+BISCUIT vs OTHER SNACK-LIKE PRODUCTS:
+- "biscuit" ONLY if the name contains ΜΠΙΣΚΟΤΑ/ΜΠΙΣΚ/BISC/COOKIE/ΠΑΞΙΜΑΔΙ/ΚΡΙΤΣΙΝΙ/ΠΤΙ-ΜΠΕΡ/ΚΟΥΛΟΥΡΑΚΙ. If none of these are present, it is NOT a biscuit.
+- "wafer" for ΓΚΟΦΡΕΤΑ/WAFER/ΣΟΚΟΦΡΕΤΑ. Chocolate-coated wafers are chocolate_bars if the dominant content is chocolate.
+- "cracker" for ΚΡΑΚΕΡ/CRACKER/CR. ΚΡΟΥΑΣ (croissant), ΚΡΟΥΣΑΝΑΚΙ are NOT crackers — they are pastry.
+- "pastry" for ΚΡΟΥΑΣΑΝ/CROISSANT/ΣΤΡΟΥΝΤΕΛ/STRUDEL/ΤΣΟΥΡΕΚΙ/CAKE/ΚΕΪΚ/ΜΠΑΡ (cereal/granola bars are NOT pastry, they are cereal_bar).
+- "cereal_bar" for ΜΠΑΡ/BAR/GRANOLA BAR/DIGESTIVE BAR/ΜΠΙΣΚΟΤΟΜΠΑΡ.
+- "gum" for ΤΣΙΧΛΑ/CHEWING GUM/ORBIT/TRIDENT/DENTYNE.
+- "candy" for ΚΑΡΑΜΕΛΑ/CANDY/ΖΕΛΙΝΙ/ΓΛΕΙΦΙΤΖΟΥΡΙ.
+- "halva" for ΧΑΛΒΑΣ/HALVA/ΧΑΛΒΑ.
+- "spread" for ΠΡΑΛΙΝΑ/NUTELLA/MERENDA/SPREAD/ΦΟΥΝΤΟΥΚΟΠΑΣΤΑ/ΜΑΡΜΑΡΑΚΙ/ΜΕΛΙΣΣΑ (the brand ΜΕΛΙΣΣΑ makes halva).
+- "dessert_mix" for ΑΝΘΟΣ ΑΡΑΒΟΣΙΤΟΥ/CUSTARD POWDER/GΙΩΤΗΣ mixes.
+- "cotton" for ΒΑΜΒΑΚΙ/COTTON PADS.
+- "wipes" for ΥΓΡΑ ΜΑΝΤΗΛΑΚΙΑ/WET WIPES/ΠΑΝΑΚΙΑ ΚΑΘΑΡΙΣΜΟΥ.
+- "pet_treat" for ΣΚΥΛΟΥ/DOG/ΓΑΤΑΣ/CAT treats, biscuits, food. PEDIGREE, WHISKAS, FRISKIES, KITEKAT etc.
+
+CLEANING/HYGIENE CLUSTER (collapse all of these to the right narrow type):
+- "detergent" for ΧΛΩΡΙΝΗ/BLEACH/KLINEX ΧΛΩΡΙΝΗ (the brand) general-purpose cleaners.
+- "cleaner" for multi-surface liquids: AJAX, CIF (cream), MR. MUSCLE, VILEDA, KLINEX ΥΓΡΟ. Anything labeled ΥΓΡΟ ΚΑΘΑΡΙΣΜΟΥ.
+- "glass_cleaner" for ΤΖΑΜΙΩΝ/GLASS/AJAX ΤΖΑΜΙΑ.
+- "toilet_cleaner" for WC/ΤΟΥΑΛΕΤΑΣ/HARPIC/VIAKAL.
+- "dish_soap" for ΠΙΑΤΩΝ/DISH WASHING/ΠΙΑΤΙΚΑ.
+- "dishwasher_detergent" for ΠΛΥΝΤΗΡΙΟΥ ΠΙΑΤΩΝ tabs/liquid/rinse.
+- "laundry_detergent" for ΡΟΥΧΩΝ/ΠΛΥΝΤΗΡΙΟΥ/washer powder/liquid.
+- "fabric_softener" for ΜΑΛΑΚΤΙΚΟ/SOFLAN.
+- "disinfectant" for ΑΝΤΙΣΗΠΤΙΚΟ/DETTOL/ΑΠΟΛΥΜΑΝΤΙΚΟ.
+- "air_freshener" for ΧΩΡΟΥ/AIR FRESHENER.
+- "cleaning_tool" for ΣΦΟΥΓΓΑΡΙΣΤΡΑ/MOP/ΒΟΥΡΤΣΑ/ΠΑΝΙ/SWIFFER.
+- "cleaning_pad" for ΣΦΟΥΓΓΑΡΙ/SPONGE/ΣΥΡΜΑ/scrub pad.
+
+TOMATO CLUSTER:
+- "tomato" for fresh TOMATOES (ΝΤΟΜΑΤΕΣ, ΤΟΜΑΤΕΣ — fresh produce).
+- "canned_tomato" for canned/crushed/peeled tomatoes (ΤΟΜΑΤΕΣ ΨΙΛΟΚΟΜΜΕΝΕΣ/ΑΠΟΦΛΟΙΩΜΕΝΕΣ, ΤΟΜΑΤΑ ΤΡΙΜΜΕΝΗ, ΠΕΡΑΣΤΗ).
+- "tomato_paste" for ΤΟΜΑΤΟΠΟΛΤΟΣ/ΤΟΜ/ΠΟΛΤΟΣ (concentrated, often 28-30%).
+- "tomato_sauce" for cooked tomato sauces (not canned, not paste).
+- "tomato_juice" for ΧΥΜΟΣ ΤΟΜΑΤΑΣ.
+
+PULSES (singular):
+- "lentil" (singular only), "chickpea", "bean", "fava" — never plural form.
+
+OLIVE CLUSTER:
+- "olive" for table olives (ελιές/ελιά).
+- "olive_oil" for ελαιόλαδο.
+
+PIZZA:
+- "pizza" for ready-made pizzas (frozen or fresh).
+- "pizza_base" for pizza dough/base (ΒΑΣΗ ΠΙΤΣΑΣ).
+
+PROTEIN/SUPPLEMENTS:
+- "protein_powder", "protein_bar", "protein_shake" — narrow types.
+
+CATEGORYCLEAN CANONICAL VOCABULARY (use ONLY these plural forms — singular is wrong):
+- Beverages/Coffee, Beverages/Tea, Beverages/Water, Beverages/Juice, Beverages/Soda, Beverages/Beer, Beverages/Wine, Beverages/Plant_Drink
+- Dairy/Milk, Dairy/Cheese, Dairy/Yogurt, Dairy/Butter, Dairy/Cream
+- Meat/Chicken, Meat/Pork, Meat/Beef, Meat/Lamb, Meat/Turkey, Meat/Fish, Meat/Shrimp
+- Pantry/Pasta, Pantry/Rice, Pantry/Flour, Pantry/Oil, Pantry/Vinegar, Pantry/Sugar, Pantry/Salt, Pantry/Sauce, Pantry/Spice, Pantry/Legume, Pantry/Grain
+- Bakery/Bread, Bakery/Rusk, Bakery/Cracker, Bakery/Pastry, Bakery/Cake
+- Snacks/Biscuit (singular!), Snacks/Wafer, Snacks/Chocolate, Snacks/Sweet, Snacks/Spread, Snacks/Candy, Snacks/Gum, Snacks/Chips, Snacks/Cereal_Bar, Snacks/Halva
+- Breakfast/Cereal, Breakfast/Cereal_Bar
+- Beverages/Coffee, Beverages/Plant_Drink
+- Produce/Tomato, Produce/Apple, Produce/Potato, Produce/Onion, Produce/Mushroom, Produce/Vegetable, Produce/Fruit
+- Household/Cleaning, Household/Soap, Household/Detergent, Household/Dishwasher, Household/Laundry, Household/Fabric_Softener, Household/Toilet_Cleaner, Household/Glass_Cleaner, Household/Disinfectant, Household/Air_Freshener, Household/Tool, Household/Sponge
+- Personal_Care/Shampoo, Personal_Care/Conditioner, Personal_Care/Toothpaste, Personal_Care/Deodorant, Personal_Care/Razor, Personal_Care/Cream, Personal_Care/Mask
+- Baby/Diaper, Baby/Wipes, Baby/Formula, Baby/Toiletry
+- Pet/Food, Pet/Treat
+
+NEVER use plural for categoryClean. NEVER use spaces in the second segment. NEVER use trailing slashes.
 
 DANGER ZONE — common mistakes to avoid. The product name often contains "γάλα"-related fragments that are NOT milk. Study these:
 - "LE PETIT MARSEILLAIS VANILLA ΑΦ. 12/650ML" -> productType="soap", subtype="shower_foam", categoryClean="Household/Soap". "ΑΦ." = αφρόλουτρο (shower foam). NOT milk.
@@ -146,6 +197,16 @@ DANGER ZONE — common mistakes to avoid. The product name often contains "γά�
 - "LACTA ΣΟΚΟΛΑΤΑ ΓΑΛΑΚΤΟΣ 14/85G" -> productType="chocolate", categoryClean="Snacks/Chocolate". A chocolate bar. NOT milk.
 - "PHILADELPHIA ΤΥΡΙ ΚΡΕΜΑ 20/200G" -> productType="cheese", subtype="cream", categoryClean="Dairy/Cheese". NOT cream and NOT milk.
 - "QUAKER ΤΡΑΓ. ΜΠΟΥΚΙΕΣ ΣΟΚ. ΓΑΛΑΚ. 12/450G" -> productType="cereal", categoryClean="Breakfast/Cereal". A cereal product. NOT milk.
+- "ΣΦΟΥΓΓΑΡΑΚΙ ΠΡΑΣΙΝΟ 48ΤΕΜ" (Scotch-Brite green sponge) -> productType="cleaning_pad", categoryClean="Household/Sponge". NOT biscuit.
+- "ΒΑΜΒΑΚΙ 150ΓΡ ΓΑΛΑΞΙΑΣ" (Septona cotton pads) -> productType="cotton", categoryClean="Personal_Care/Cotton". NOT biscuit.
+- "LAVACHE QUI RIT ΤΥΡΟΒΟΥΤΙΕΣ" -> productType="cheese", subtype="processed_portions", categoryClean="Dairy/Cheese". NOT biscuit (despite the La vache qui rit brand confusion with biscuit).
+- "ORBIT ΤΣΙΧΛΑ" -> productType="gum", categoryClean="Snacks/Gum". NOT biscuit.
+- "KIT KAT ΓΚΟΦΡΕΤΑ" -> productType="wafer", categoryClean="Snacks/Wafer". NOT biscuit.
+- "ΠΑΠΑΔΟΠΟΥΛΟΥ CR. CRACKERS" -> productType="cracker", categoryClean="Bakery/Cracker". NOT biscuit (the "CR." abbreviation).
+- "CHAMPION ΚΡΟΥΑΣΑΝ ΠΡΑΛΙΝΑ" -> productType="pastry", categoryClean="Bakery/Pastry". NOT biscuit.
+- "MERENDA ΠΡΑΛΙΝΑ ΦΟΥΝΤΟΥΚΙΟΥ" -> productType="spread", categoryClean="Snacks/Spread". NOT biscuit.
+- "ΓΙΩΤΗΣ ΑΝΘΟΣ ΑΡΑΒΟΣΙΤΟΥ" -> productType="dessert_mix", categoryClean="Pantry/Dessert_Mix". NOT biscuit.
+- "PEDIGREE ΜΠΙΣΚΟΤΑ ΣΚΥΛΟΥ" -> productType="pet_treat", categoryClean="Pet/Treat". NOT biscuit (the word μπισκότα is in the name but it is a pet product).
 
 If unsure, lower the confidence. Better confidence=0.4 with correct type than confidence=0.95 with wrong type.
 
@@ -203,6 +264,12 @@ function normalize(p: SourceProduct, raw: LlmClassification): EnrichedProduct {
 // -------- Main --------
 
 async function main() {
+  // Subcommand: --normalize-only re-normalizes existing data without LLM calls.
+  if (process.argv.includes('--normalize-only')) {
+    await runNormalizeOnly();
+    return;
+  }
+
   console.log('Enrichment pipeline');
   console.log(`Model: ${MODEL} | Concurrency: ${CONCURRENCY} | Ollama: ${OLLAMA_URL}`);
   console.log('---');
@@ -334,6 +401,52 @@ function writeFinal(
   console.log(
     `\nWrote ${finalPath}: ${enrichedList.length - missing}/${enrichedList.length} classified (${missing} missing)`
   );
+}
+
+// ----------------------------------------------------------------------------
+// Subcommand: `enrich:normalize` re-normalizes the existing enriched.jsonl
+// without re-running the LLM. Useful after prompt/normalizer changes to
+// see their effect on the same data the model produced.
+// ----------------------------------------------------------------------------
+async function runNormalizeOnly(): Promise<void> {
+  if (!fs.existsSync(progressPath)) {
+    console.error(`No progress file found at ${progressPath}`);
+    console.error('Run the enricher first: npm run enrich');
+    process.exit(1);
+  }
+  const lines = fs.readFileSync(progressPath, 'utf8').split('\n').filter(Boolean);
+  console.log(`Reading ${lines.length} lines from ${progressPath}`);
+  const out = fs.createWriteStream(progressPath, { flags: 'w' });
+  for (const line of lines) {
+    try {
+      const obj = JSON.parse(line) as EnrichedProduct;
+      const norm = normalizeEnriched(obj);
+      out.write(JSON.stringify(norm) + '\n');
+    } catch {
+      /* skip malformed line */
+    }
+  }
+  out.end();
+  await new Promise<void>((resolve) => out.on('finish', () => resolve()));
+  console.log('Normalized. Reassembling final file...');
+
+  if (!fs.existsSync(scrapedDataPath)) {
+    console.error(`Source data not found: ${scrapedDataPath}`);
+    process.exit(1);
+  }
+  const scraped = JSON.parse(fs.readFileSync(scrapedDataPath, 'utf8')) as {
+    products: SourceProduct[];
+  };
+  const done = new Map<string, EnrichedProduct>();
+  for (const line of lines) {
+    try {
+      const obj = JSON.parse(line) as EnrichedProduct;
+      if (obj?.id) done.set(obj.id, normalizeEnriched(obj));
+    } catch {
+      /* ignore */
+    }
+  }
+  writeFinal(scraped.products, done);
 }
 
 main().catch((err) => {
